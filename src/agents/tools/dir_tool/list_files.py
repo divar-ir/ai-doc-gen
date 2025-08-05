@@ -35,7 +35,7 @@ DEFAULT_IGNORED_DIRS = [
     # Python
     ".tox",  # Tox environments
     ".nox",  # Nox environments
-    ".pytest_cache",  # Pytest cache (duplicate removed from testing section)
+    ".pytest_cache",  # Pytest cache
     ".mypy_cache",  # MyPy cache
     ".pyre",  # Pyre type checker
     ".pytype",  # Pytype static analyzer
@@ -49,14 +49,11 @@ DEFAULT_IGNORED_DIRS = [
     # Java/JVM
     ".gradle",  # Gradle cache
     ".m2",  # Maven local repository
-    "target",  # Maven build output (already exists above)
-    "build",  # Gradle build output (already exists above)
     ".metadata",  # Eclipse metadata
     ".recommenders",  # Eclipse recommenders
     "bin",  # Java compiled classes
     "gen",  # Generated sources
     # Node.js/JavaScript
-    "node_modules",  # Node.js dependencies (already exists above)
     ".npm",  # NPM cache
     ".yarn",  # Yarn cache
     "yarn-error.log",  # Yarn error logs
@@ -66,10 +63,9 @@ DEFAULT_IGNORED_DIRS = [
     "lerna-debug.log*",  # Lerna debug logs
     ".eslintcache",  # ESLint cache
     ".parcel-cache",  # Parcel cache
-    ".cache",  # General cache (already exists above)
-    "coverage",  # Coverage reports (already exists above)
+    ".cache",  # General cache
+    "coverage",  # Coverage reports
     # PHP
-    "vendor",  # Composer dependencies (already covered above)
     ".phpunit.result.cache",  # PHPUnit cache
     "composer.phar",  # Composer executable
     ".phplint-cache",  # PHP Lint cache
@@ -89,7 +85,6 @@ DEFAULT_IGNORED_DIRS = [
     # Documentation/Generated
     "docs/_build",  # Sphinx documentation build
     "site",  # MkDocs site
-    "coverage",  # Coverage reports
     # Logging/Output
     "logs",  # Application log files
     ".logs",  # Hidden log directory
@@ -99,7 +94,6 @@ DEFAULT_IGNORED_DIRS = [
     "public",  # Public web assets (when not source)
     "static",  # Static files
     # Testing
-    ".pytest_cache",  # Pytest cache
     ".coverage",  # Coverage data
     "htmlcov",  # Coverage HTML reports
     ".nyc_output",  # NYC coverage output
@@ -123,19 +117,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".bin",  # Binary files
     ".a",  # Static libraries
     ".lib",  # Library files (Windows)
-    # Programming Language Compiled
-    # Python Compiled
-    ".pyc",  # Python bytecode (already exists above)
-    ".pyo",  # Python optimized bytecode (already exists above)
-    ".pyd",  # Python extension module (already exists above)
-    # Go Compiled
-    # (Go compiles to single binary, no specific extensions to ignore)
-    # Java/JVM Compiled
-    ".class",  # Java bytecode (already exists above)
-    # Node.js/JavaScript
-    # (JavaScript is interpreted, but build artifacts exist)
-    # PHP
-    # (PHP is interpreted, no compilation artifacts)
     # Other Languages
     ".beam",  # Erlang/Elixir compiled
     ".hi",  # Haskell interface files
@@ -150,7 +131,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".ear",  # Enterprise application archive
     ".aar",  # Android archive
     # .NET
-    ".pdb",  # Program database
     ".mdb",  # Mono debug database
     # Compressed Archives
     ".zip",  # ZIP archive
@@ -166,22 +146,9 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".bz2",  # Bzip2 compressed
     ".xz",  # XZ compressed
     # Package Manager Files
-    # Python Packages
     ".whl",  # Python wheel
     ".egg",  # Python egg (deprecated)
-    ".tar.gz",  # Python source distribution (already exists above)
-    # Go Packages
-    # (Go uses modules, no specific package files to ignore)
-    # Java Packages
-    ".jar",  # Java archive (already exists above)
-    ".war",  # Web application archive (already exists above)
-    ".ear",  # Enterprise application archive (already exists above)
-    # Node.js/JavaScript Packages
-    ".tgz",  # NPM package (already exists above)
-    ".tar.gz",  # NPM package (already exists above)
-    # PHP Packages
     ".phar",  # PHP Archive
-    # General Package Files
     ".deb",  # Debian package
     ".rpm",  # RPM package
     ".msi",  # Windows installer
@@ -205,7 +172,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".db",  # Database files
     ".sqlite",  # SQLite database
     ".sqlite3",  # SQLite 3 database
-    ".mdb",  # Microsoft Access database
     ".accdb",  # Microsoft Access database (newer)
     # Configuration/Environment
     ".env",  # Environment variable files
