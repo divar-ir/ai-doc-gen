@@ -166,7 +166,8 @@ class AnalyzerAgent:
                 file_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(file_path, "w") as f:
-                f.write(result.output.markdown_content)
+                output = self._cleanup_output(result.output.markdown_content)
+                f.write(output)
 
                 Logger.info(f"{agent.name} result saved to {file_path}")
                 trace.get_current_span().set_attribute(f"{agent.name} result", result.output.markdown_content)
@@ -294,3 +295,9 @@ class AnalyzerAgent:
         }
 
         return self._prompt_manager.render_prompt(prompt_name, **template_vars)
+
+    def _cleanup_output(self, output: str) -> str:
+        # Cleanup absolute paths
+        output = output.replace(str(self._config.repo_path), ".")
+
+        return output
