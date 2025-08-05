@@ -29,10 +29,13 @@ agents:
       without requiring them to dive into the code directly.
 
     user_prompt: >
-      Please analyze the codebase and create a comprehensive README.md file. The analysis data is available at {{repo_path}}/.ai/docs/.
+      Please analyze the codebase and create a comprehensive README.md file.
+      {% if available_ai_docs %}
+      The analysis data is available at {{available_ai_docs}}.
+      {% endif %}
 
       {% if use_existing_readme == True %}
-      First, check the project path for an existing README.md file. If it contains useful information, incorporate it into the new readme.
+      First, read the existing README.md file at {{repo_path}}/README.md. If it contains useful information, incorporate it into the new readme.
       Note that the existing readme may not be up to date, so verify all information.
       {% else %}
       Create a new README.md file from scratch, ignoring any existing readme file.
