@@ -39,7 +39,11 @@ def configure_logging(
 
 async def analyze(args: argparse.Namespace):
     cfg: AnalyzeHandlerConfig = load_config(args, AnalyzeHandlerConfig, "analyzer")
-    configure_logging(cfg.repo_path)
+    configure_logging(
+        repo_path=cfg.repo_path,
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
 
     handler = AnalyzeHandler(cfg)
 
@@ -48,7 +52,11 @@ async def analyze(args: argparse.Namespace):
 
 async def document(args: argparse.Namespace):
     cfg: ReadmeHandlerConfig = load_config(args, ReadmeHandlerConfig, "documenter")
-    configure_logging(cfg.repo_path)
+    configure_logging(
+        repo_path=cfg.repo_path,
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
 
     handler = ReadmeHandler(cfg)
 
@@ -160,20 +168,20 @@ def parse_args():
 
 
 def configure_langfuse():
-    Logger.debug("Configuring Langfuse")
     langfuse_auth = base64.b64encode(f"{config.LANGFUSE_PUBLIC_KEY}:{config.LANGFUSE_SECRET_KEY}".encode()).decode()
     os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {langfuse_auth}"
 
     logfire.configure(
-        service_name="code-documenter",
+        service_name="ai-doc-gen",
         send_to_logfire=False,
         environment=config.ENVIRONMENT,
     )
 
+    logfire.instrument_pydantic_ai()
+    logfire.instrument_httpx(capture_all=True)
+
 
 async def main() -> Optional[int]:
-    Logger.debug("Starting main")
-
     if config.ENABLE_LANGFUSE:
         configure_langfuse()
 

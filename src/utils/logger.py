@@ -81,7 +81,7 @@ class Logger:
         # Set up logging
         cls._logger = logging.getLogger("ai-doc-gen")
         cls._logger.setLevel(logging.DEBUG)  # Set to lowest level to let handlers control
-        cls._logger.propagate = False  # Prevent propagation to root logger
+        cls._logger.propagate = True  # Allow propagation to root logger for logfire integration
 
         if file_name is None:
             file_name = f"{datetime.now().strftime('%Y-%m-%d__%H-%M-%S')}.log"
