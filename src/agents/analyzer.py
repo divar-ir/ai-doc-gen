@@ -130,14 +130,15 @@ class AnalyzerAgent:
         self.validate_succession(analysis_files)
 
     def validate_succession(self, analysis_files: List[Path]):
-        not_found_files = []
+        missing_files = []
         for file in analysis_files:
             if not file.exists():
-                not_found_files.append(file)
+                missing_files.append(file)
 
-        if not_found_files:
-            Logger.warning(f"Some analysis files not found: {not_found_files}")
-            raise ValueError(f"Some analysis files not found: {not_found_files}")
+        if missing_files:
+            missing_files_str = ", ".join([str(file) for file in missing_files])
+            Logger.warning(f"Some analysis files not found: {missing_files_str}")
+            raise ValueError(f"Some analysis files not found: {missing_files_str}")
 
     async def _run_agent(self, agent: Agent, user_prompt: str, file_path: Path):
         trace.get_current_span().add_event(name=f"Running {agent.name}", attributes={"agent_name": agent.name})

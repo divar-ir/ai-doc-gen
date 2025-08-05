@@ -176,11 +176,15 @@ class DocumenterAgent:
 
     def _render_prompt(self, prompt_name: str) -> str:
         # Render the template with the config
-        available_ai_docs = [
-            os.path.join(self._config.repo_path, ".ai", "docs", doc)
-            for doc in os.listdir(self._config.repo_path / ".ai" / "docs")
-            if doc.endswith(".md")
-        ]
+        available_ai_docs = []
+
+        ai_docs_dir = self._config.repo_path / ".ai" / "docs"
+        if ai_docs_dir.exists() and ai_docs_dir.is_dir():
+            available_ai_docs = [
+                os.path.join(self._config.repo_path, ".ai", "docs", doc.name)
+                for doc in ai_docs_dir.iterdir()
+                if doc.is_file() and doc.name.endswith(".md")
+            ]
 
         template_vars = {
             "repo_path": str(self._config.repo_path),
