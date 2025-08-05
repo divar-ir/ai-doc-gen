@@ -3,6 +3,8 @@ import os
 from opentelemetry import trace
 from pydantic_ai import ModelRetry, Tool
 
+from utils import Logger
+
 
 class FileReadTool:
     def __init__(self):
@@ -24,6 +26,8 @@ class FileReadTool:
                 If the file is a .go file, returns an error message directing to use the Go-Analyzer-Tool.
                 If the file cannot be read, returns an error message with details about the failure.
         """
+        Logger.debug("Tool Call: Read File", data={"file_path": file_path})
+
         trace.get_current_span().set_attribute("input", file_path)
 
         if not os.path.exists(file_path):

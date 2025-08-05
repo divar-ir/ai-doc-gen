@@ -62,7 +62,11 @@ async def cronjob_analyze(args: argparse.Namespace):
         file_key="cronjob.analyze",
     )
 
-    configure_logging(Path("."), file_level=logging.INFO, console_level=logging.INFO)
+    configure_logging(
+        repo_path=Path("."),
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
 
     gitlab_client = Gitlab(
         url=config.GITLAB_API_URL,
@@ -156,6 +160,7 @@ def parse_args():
 
 
 def configure_langfuse():
+    Logger.debug("Configuring Langfuse")
     langfuse_auth = base64.b64encode(f"{config.LANGFUSE_PUBLIC_KEY}:{config.LANGFUSE_SECRET_KEY}".encode()).decode()
     os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {langfuse_auth}"
 
@@ -167,6 +172,8 @@ def configure_langfuse():
 
 
 async def main() -> Optional[int]:
+    Logger.debug("Starting main")
+
     if config.ENABLE_LANGFUSE:
         configure_langfuse()
 

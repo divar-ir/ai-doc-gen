@@ -80,6 +80,7 @@ class DocumenterAgent:
         self._prompt_manager = PromptManager(file_path=Path(__file__).parent / "prompts" / "documenter.yaml")
 
     async def run(self):
+        Logger.info("Starting documenter agent")
         user_prompt = self._render_prompt("agents.documenter.user_prompt")
         await self._run_agent(
             agent=self._documenter_agent,

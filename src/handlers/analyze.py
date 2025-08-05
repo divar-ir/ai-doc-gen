@@ -4,6 +4,7 @@ from agents.analyzer import AnalyzerAgent, AnalyzerAgentConfig
 from utils.repo import get_repo_version
 
 from .base_handler import BaseHandler, BaseHandlerConfig
+from utils import Logger
 
 
 class AnalyzeHandlerConfig(BaseHandlerConfig, AnalyzerAgentConfig):
@@ -17,6 +18,8 @@ class AnalyzeHandler(BaseHandler):
         self.agent = AnalyzerAgent(config)
 
     async def handle(self):
+        Logger.info("Starting analyze handler")
+
         with trace.get_tracer("analyzer").start_as_current_span("Analyzer Agent") as span:
             span.set_attributes(
                 {

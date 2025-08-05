@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Type, TypeVar
@@ -49,6 +50,8 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 VERSION = os.getenv("APP_VERSION", "1.0.0")
 
+CONSOLE_LOG_LEVEL = getattr(logging, os.getenv("CONSOLE_LOG_LEVEL", "DEBUG").upper())
+FILE_LOG_LEVEL = getattr(logging, os.getenv("FILE_LOG_LEVEL", "INFO").upper())
 
 # --------------------------
 # Helper Function

@@ -5,12 +5,14 @@ from typing import Any, List, Optional
 from opentelemetry import trace
 from pydantic_ai import Tool
 
+from utils import Logger
+
+
 DEFAULT_IGNORED_DIRS = [
     # Version Control
     ".git",  # Git repository metadata
     ".svn",  # Subversion metadata
     ".hg",  # Mercurial metadata
-    
     # Development Environment
     ".venv",  # Python virtual environment
     ".old-venv",  # Old Python virtual environment backup
@@ -19,7 +21,6 @@ DEFAULT_IGNORED_DIRS = [
     ".idea",  # JetBrains IDE configuration files
     ".vscode",  # Visual Studio Code settings
     ".eclipse",  # Eclipse IDE files
-    
     # Runtime/Build Artifacts
     "__pycache__",  # Python bytecode cache files
     "node_modules",  # Node.js dependencies
@@ -30,9 +31,7 @@ DEFAULT_IGNORED_DIRS = [
     ".next",  # Next.js build output
     ".nuxt",  # Nuxt.js build output
     ".output",  # Nitro output
-    
     # Language/Framework Specific
-    
     # Python
     ".tox",  # Tox environments
     ".nox",  # Nox environments
@@ -43,12 +42,10 @@ DEFAULT_IGNORED_DIRS = [
     "site-packages",  # Python packages
     ".eggs",  # Python eggs
     "wheels",  # Python wheels directory
-    
     # Go
     "vendor",  # Go vendor dependencies
     ".mod",  # Go module cache
     "go.work.sum",  # Go workspace sum
-    
     # Java/JVM
     ".gradle",  # Gradle cache
     ".m2",  # Maven local repository
@@ -58,7 +55,6 @@ DEFAULT_IGNORED_DIRS = [
     ".recommenders",  # Eclipse recommenders
     "bin",  # Java compiled classes
     "gen",  # Generated sources
-    
     # Node.js/JavaScript
     "node_modules",  # Node.js dependencies (already exists above)
     ".npm",  # NPM cache
@@ -72,13 +68,11 @@ DEFAULT_IGNORED_DIRS = [
     ".parcel-cache",  # Parcel cache
     ".cache",  # General cache (already exists above)
     "coverage",  # Coverage reports (already exists above)
-    
     # PHP
     "vendor",  # Composer dependencies (already covered above)
     ".phpunit.result.cache",  # PHPUnit cache
     "composer.phar",  # Composer executable
     ".phplint-cache",  # PHP Lint cache
-    
     # Framework Specific
     "bower_components",  # Bower components
     ".bundle",  # Ruby bundle
@@ -88,34 +82,28 @@ DEFAULT_IGNORED_DIRS = [
     ".stack-work",  # Haskell Stack
     "elm-stuff",  # Elm packages
     "_site",  # Jekyll/Static site generators
-    
     # Infrastructure/Deployment
     "k8s",  # Kubernetes configuration files
     ".terraform",  # Terraform state
     ".docker",  # Docker build context
-    
     # Documentation/Generated
     "docs/_build",  # Sphinx documentation build
     "site",  # MkDocs site
     "coverage",  # Coverage reports
-    
     # Logging/Output
     "logs",  # Application log files
     ".logs",  # Hidden log directory
     "log",  # Log directory
-    
     # Static Assets
     "assets",  # Static files (images, fonts, etc.)
     "public",  # Public web assets (when not source)
     "static",  # Static files
-    
     # Testing
     ".pytest_cache",  # Pytest cache
     ".coverage",  # Coverage data
     "htmlcov",  # Coverage HTML reports
     ".nyc_output",  # NYC coverage output
     "jest-coverage",  # Jest coverage
-    
     # OS/System
     ".DS_Store",  # macOS metadata
     "Thumbs.db",  # Windows thumbnails
@@ -135,26 +123,19 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".bin",  # Binary files
     ".a",  # Static libraries
     ".lib",  # Library files (Windows)
-    
     # Programming Language Compiled
-    
     # Python Compiled
     ".pyc",  # Python bytecode (already exists above)
     ".pyo",  # Python optimized bytecode (already exists above)
     ".pyd",  # Python extension module (already exists above)
-    
     # Go Compiled
     # (Go compiles to single binary, no specific extensions to ignore)
-    
     # Java/JVM Compiled
     ".class",  # Java bytecode (already exists above)
-    
     # Node.js/JavaScript
     # (JavaScript is interpreted, but build artifacts exist)
-    
     # PHP
     # (PHP is interpreted, no compilation artifacts)
-    
     # Other Languages
     ".beam",  # Erlang/Elixir compiled
     ".hi",  # Haskell interface files
@@ -163,17 +144,14 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".cmx",  # OCaml optimized compiled
     ".rlib",  # Rust library
     ".pdb",  # Program database (debugging)
-    
     # Java/JVM Archives
     ".jar",  # Java archive
     ".war",  # Web application archive
     ".ear",  # Enterprise application archive
     ".aar",  # Android archive
-    
     # .NET
     ".pdb",  # Program database
     ".mdb",  # Mono debug database
-    
     # Compressed Archives
     ".zip",  # ZIP archive
     ".tar",  # Tar archive
@@ -187,29 +165,22 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".gz",  # Gzip compressed
     ".bz2",  # Bzip2 compressed
     ".xz",  # XZ compressed
-    
     # Package Manager Files
-    
     # Python Packages
     ".whl",  # Python wheel
     ".egg",  # Python egg (deprecated)
     ".tar.gz",  # Python source distribution (already exists above)
-    
     # Go Packages
     # (Go uses modules, no specific package files to ignore)
-    
     # Java Packages
     ".jar",  # Java archive (already exists above)
     ".war",  # Web application archive (already exists above)
     ".ear",  # Enterprise application archive (already exists above)
-    
     # Node.js/JavaScript Packages
     ".tgz",  # NPM package (already exists above)
     ".tar.gz",  # NPM package (already exists above)
-    
     # PHP Packages
     ".phar",  # PHP Archive
-    
     # General Package Files
     ".deb",  # Debian package
     ".rpm",  # RPM package
@@ -218,7 +189,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".pkg",  # Package files
     ".gem",  # Ruby gem
     ".nupkg",  # NuGet package
-    
     # Runtime/Cache Files
     ".log",  # Log files
     ".tmp",  # Temporary files
@@ -230,7 +200,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".orig",  # Original files
     ".cache",  # Cache files
     ".pid",  # Process ID files
-    
     # Database Files
     ".dat",  # Data files
     ".db",  # Database files
@@ -238,13 +207,11 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".sqlite3",  # SQLite 3 database
     ".mdb",  # Microsoft Access database
     ".accdb",  # Microsoft Access database (newer)
-    
     # Configuration/Environment
     ".env",  # Environment variable files
     ".env.local",  # Local environment variables
     ".env.production",  # Production environment variables
     ".env.development",  # Development environment variables
-    
     # IDE/Editor Files
     ".iml",  # IntelliJ module files
     ".ipr",  # IntelliJ project files
@@ -252,13 +219,11 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".sublime-project",  # Sublime Text project
     ".sublime-workspace",  # Sublime Text workspace
     ".vscode",  # VS Code settings (file)
-    
     # OS/System Files
     ".DS_Store",  # macOS metadata
     "Thumbs.db",  # Windows thumbnails
     "desktop.ini",  # Windows desktop settings
     ".localized",  # macOS localization
-    
     # Media Files (often not needed for code analysis)
     ".jpg",  # JPEG image
     ".jpeg",  # JPEG image
@@ -278,7 +243,6 @@ DEFAULT_IGNORED_EXTENSIONS = [
     ".xlsx",  # Excel files
     ".ppt",  # PowerPoint files
     ".pptx",  # PowerPoint files
-    
     # Font Files
     ".ttf",  # TrueType fonts
     ".otf",  # OpenType fonts
@@ -320,6 +284,8 @@ class ListFilesTool:
             /: ['file1.txt', 'file2.txt']
             /subdir: ['file3.txt', 'file4.txt']
         """
+        Logger.debug("Tool Call: List Files", data={"directory": directory})
+
         trace.get_current_span().set_attribute("input", directory)
         directory = directory
         if directory[-1] == "/":

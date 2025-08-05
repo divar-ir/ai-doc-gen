@@ -49,6 +49,7 @@ class AnalyzerAgent:
             raise ValueError("All analysis options are excluded")
 
     async def run(self):
+        Logger.info("Starting analyzer agent")
         tasks = []
         analysis_files = []
 
@@ -112,8 +113,12 @@ class AnalyzerAgent:
                 )
             )
 
+        Logger.debug("Running all agents")
+
         # Run all agents concurrently, continue even if some fail
         results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        Logger.debug("All agents finished")
 
         # Log results for each agent
         for i, result in enumerate(results):
@@ -125,9 +130,14 @@ class AnalyzerAgent:
         self.validate_succession(analysis_files)
 
     def validate_succession(self, analysis_files: List[Path]):
+        not_found_files = []
         for file in analysis_files:
             if not file.exists():
-                raise ValueError(f"Analysis file {file.name} does not exist")
+                not_found_files.append(file)
+
+        if not_found_files:
+            Logger.warning(f"Some analysis files not found: {not_found_files}")
+            raise ValueError(f"Some analysis files not found: {not_found_files}")
 
     async def _run_agent(self, agent: Agent, user_prompt: str, file_path: Path):
         trace.get_current_span().add_event(name=f"Running {agent.name}", attributes={"agent_name": agent.name})
@@ -135,7 +145,7 @@ class AnalyzerAgent:
         try:
             Logger.info(f"Running {agent.name}")
             start_time = time.time()
-            async with agent.run_mcp_servers():
+            async with agent:
                 result: AgentRunResult = await agent.run(
                     user_prompt=user_prompt,
                     output_type=AnalyzerResult,

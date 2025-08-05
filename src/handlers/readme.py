@@ -2,6 +2,7 @@ from opentelemetry import trace
 
 from agents.documenter import DocumenterAgent, DocumenterAgentConfig
 from utils.repo import get_repo_version
+from utils import Logger
 
 from .base_handler import BaseHandler, BaseHandlerConfig
 
@@ -17,6 +18,8 @@ class ReadmeHandler(BaseHandler):
         self.agent = DocumenterAgent(config)
 
     async def handle(self):
+        Logger.info("Starting readme handler")
+
         with trace.get_tracer("doc_readme").start_as_current_span("Readme Handler") as span:
             span.set_attributes(
                 {
