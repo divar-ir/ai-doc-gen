@@ -12,7 +12,7 @@ DEFAULT_IGNORED_DIRS = [
     ".idea",
     "k8s",
     "logs",
-    ".logs"
+    ".logs",
     "__pycache__",
     ".venv",
     ".old-venv",
