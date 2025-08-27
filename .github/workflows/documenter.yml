@@ -1,53 +1,48 @@
 name: AI Auto-Documentation
 
-# این workflow با هر push به شاخه main اجرا می‌شود
 on:
   push:
     branches:
-      - main  # می‌توانید این را به develop یا شاخه‌های دیگر تغییر دهید
+      - main
 
 jobs:
   generate_docs:
     runs-on: ubuntu-latest
     permissions:
-      # برای اینکه اکشن بتواند در ریپازیتوری کامیت کند، این دسترسی لازم است
       contents: write
 
     steps:
-      # مرحله ۱: دریافت کدها از ریپازیتوری
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 برای دسترسی به تاریخچه کامل گیت جهت مقایسه کامیت‌ها
           fetch-depth: 0
 
-      # مرحله ۲: نصب پایتون
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # مرحله ۳: نصب وابستگی‌های --
+      # --- مرحله جدید برای اشکال‌زدایی ---
+      - name: DEBUG - Show Workflow File Content
+        run: |
+          echo "--- Workflow file content ---"
+          cat .github/workflows/documenter.yml
+          echo "---------------------------"
 
+      # مرحله نصب وابستگی‌ها
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-
-
-      # مرحله ۴: شناسایی فایل‌های پایتونی تغییر کرده در آخرین کامیت
+      # ... بقیه مراحل مانند قبل ...
       - name: Get changed Python files
         id: changed_files
         run: |
-          # این دستور فقط فایل‌های پایتونی (.py) تغییر کرده را برمی‌گرداند
           CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | grep '\.py$' || echo "")
           echo "files=${CHANGED_FILES}" >> $GITHUB_OUTPUT
 
-      # مرحله ۵: اجرای اسکریپت تولید مستندات برای هر فایل تغییر کرده
       - name: Generate documentation
-        # فقط در صورتی اجرا شود که فایلی تغییر کرده باشد
         if: steps.changed_files.outputs.files != ''
         env:
-          # استفاده از سکرتی که در تنظیمات ریپازیتوری ذخیره کردید
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           for file in ${{ steps.changed_files.outputs.files }}
@@ -55,12 +50,10 @@ jobs:
             python run_doc_generator.py --file-path "$file" --output-dir "docs"
           done
       
-      # مرحله ۶: کامیت و پوش کردن مستندات جدید به ریپازیتوری
       - name: Commit and push documentation
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "docs: ✨ Automatically generate documentation"
-          # فقط فایل‌های داخل پوشه docs را کامیت کن
           file_pattern: "docs/**/*.md"
           commit_user_name: "AI Doc Bot"
           commit_user_email: "ai-doc-bot@users.noreply.github.com"
