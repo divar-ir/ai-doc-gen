@@ -27,9 +27,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      # مرحله ۳: نصب وابستگی‌های پروژه ai-doc-gen
+      # مرحله ۳: نصب وابستگی‌های --
       - name: Install dependencies
         run: pip install -r requirements.txt
+
 
 
       # مرحله ۴: شناسایی فایل‌های پایتونی تغییر کرده در آخرین کامیت
