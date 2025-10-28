@@ -111,7 +111,6 @@ class AnalyzerAgent:
 
         self.validate_succession(analysis_files)
 
-
     def validate_succession(self, analysis_files: List[Path]):
         missing_files = []
         for file in analysis_files:
@@ -170,11 +169,11 @@ class AnalyzerAgent:
                 trace.get_current_span().set_attribute(f"{agent.name} result", result.output)
 
         except UnexpectedModelBehavior as e:
-            Logger.info(f"Unexpected model behavior: {e}")
-            raise e
+            Logger.info(f"Unexpected model behavior: {e}", exc_info=True)
+            raise
         except Exception as e:
-            Logger.info(f"Error running agent: {e}")
-            raise e
+            Logger.info(f"Error running agent: {e}", exc_info=True)
+            raise
 
     @property
     def _llm_model(self) -> Tuple[Model, ModelSettings]:

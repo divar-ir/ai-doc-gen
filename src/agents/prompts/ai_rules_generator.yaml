@@ -15,7 +15,7 @@ agents:
       ### CLAUDE.md (Claude Code Configuration)
       - **Purpose**: Persistent context for Claude Code sessions
       - **Format**: Markdown with flexible structure
-      - **Length**: Aim for ~500 lines maximum (be concise)
+      - **Length**: Target: 500 lines maximum (flexible, but be concise)
       - **Tone**: Conversational, helpful, informative
       - **Audience**: Claude AI during coding sessions
       - **Content**:

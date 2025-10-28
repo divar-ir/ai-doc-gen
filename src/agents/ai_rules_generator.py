@@ -79,9 +79,7 @@ class AIRulesGeneratorConfig(BaseModel):
 class AIRulesGeneratorAgent:
     def __init__(self, cfg: AIRulesGeneratorConfig):
         self._config = cfg
-        self._prompt_manager = PromptManager(
-            file_path=Path(__file__).parent / "prompts" / "ai_rules_generator.yaml"
-        )
+        self._prompt_manager = PromptManager(file_path=Path(__file__).parent / "prompts" / "ai_rules_generator.yaml")
 
     async def run(self) -> AIRulesOutput:
         Logger.info(f"Running AI rules generator agent with concurrent generation")
@@ -268,7 +266,13 @@ class AIRulesGeneratorAgent:
             return result.output
 
         except Exception as e:
-            Logger.error(f"Error running {agent_name}: {e}")
+            Logger.error(
+                f"Error running {agent_name}",
+                data={
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
             raise e
 
     @property
@@ -348,9 +352,7 @@ class AIRulesGeneratorAgent:
             model_settings=model_settings,
             output_type=CursorRulesOutput,
             retries=config.AI_RULES_AGENT_RETRIES,
-            system_prompt=self._prompt_manager.render_prompt(
-                "agents.cursor_rules_generator.system_prompt"
-            ),
+            system_prompt=self._prompt_manager.render_prompt("agents.cursor_rules_generator.system_prompt"),
             tools=[
                 FileReadTool().get_tool(),
             ],
@@ -396,9 +398,7 @@ class AIRulesGeneratorAgent:
             **analysis_files,
         }
 
-        return self._prompt_manager.render_prompt(
-            "agents.cursor_rules_generator.user_prompt", **template_vars
-        )
+        return self._prompt_manager.render_prompt("agents.cursor_rules_generator.user_prompt", **template_vars)
 
     def _read_analysis_files(self) -> dict[str, Optional[str]]:
         analysis_files = {}
