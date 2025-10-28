@@ -9,8 +9,9 @@ analyzer:
   exclude_request_flow: false
   exclude_api_analysis: false
 
-# Documenter configuration options
-documenter:
+# Generator configuration options
+generate:
+  # README generation configuration
   readme:
     # README section exclusions - set to true to exclude sections from the README
     exclude_project_overview: false
@@ -24,6 +25,18 @@ documenter:
     exclude_known_issues_and_limitations: false
     exclude_additional_documentation: false
     use_existing_readme: false
+
+  # AI Rules generation configuration (CLAUDE.md, AGENTS.md, .cursor/rules/)
+  ai_rules:
+    # Skip existing files - set to true to avoid overwriting existing files
+    skip_existing_claude_md: false
+    skip_existing_agents_md: false
+    skip_existing_cursor_rules: false
+
+    # Content customization
+    detail_level: "standard"  # Options: minimal, standard, comprehensive
+    max_claude_lines: 500     # Maximum lines for CLAUDE.md
+    max_agents_lines: 150     # Maximum lines for AGENTS.md (strict limit)
 
 # Cronjob analyzer configuration options
 cronjob:

@@ -17,6 +17,7 @@ from pydantic_core import PydanticUndefinedType
 
 import config
 from config import load_config
+from handlers.ai_rules import AIRulesHandler, AIRulesHandlerConfig
 from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
 from handlers.cronjob import JobAnalyzeHandler, JobAnalyzeHandlerConfig
 from handlers.readme import ReadmeHandler, ReadmeHandlerConfig
@@ -50,15 +51,30 @@ async def analyze(args: argparse.Namespace):
     await handler.handle()
 
 
-async def document(args: argparse.Namespace):
-    cfg: ReadmeHandlerConfig = load_config(args, ReadmeHandlerConfig, "documenter")
+async def generate_readme(args: argparse.Namespace):
+    cfg: ReadmeHandlerConfig = load_config(args, ReadmeHandlerConfig, "generate.readme")
     configure_logging(
         repo_path=cfg.repo_path,
         file_level=config.FILE_LOG_LEVEL,
         console_level=config.CONSOLE_LOG_LEVEL,
     )
 
+    Logger.info(f"Generating README for repository {cfg.repo_path}")
     handler = ReadmeHandler(cfg)
+
+    await handler.handle()
+
+
+async def generate_ai_rules(args: argparse.Namespace):
+    cfg: AIRulesHandlerConfig = load_config(args, AIRulesHandlerConfig, "generate.ai_rules")
+    configure_logging(
+        repo_path=cfg.repo_path,
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
+
+    Logger.info(f"Generating AI rules for {cfg.repo_path}")
+    handler = AIRulesHandler(cfg)
 
     await handler.handle()
 
@@ -142,16 +158,38 @@ def add_handler_args(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run code documentation tools")
+    parser = argparse.ArgumentParser(
+        description="AI-powered code documentation and analysis tools",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Analyzer command
-    analyze_parser = subparsers.add_parser("analyze", help="Run code analyzer")
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze codebase structure, dependencies, and data flow",
+    )
     add_handler_args(analyze_parser, AnalyzeHandlerConfig.model_fields, "Analyzer Configuration")
 
-    # Documenter command
-    document_parser = subparsers.add_parser("document", help="Run code documenter")
-    add_handler_args(document_parser, ReadmeHandlerConfig.model_fields, "Documenter Configuration")
+    # Generate command (with subcommands)
+    generate_parser = subparsers.add_parser(
+        "generate",
+        help="Generate documentation and configuration files",
+    )
+    generate_subparsers = generate_parser.add_subparsers(dest="sub_command", required=True)
+
+    # Generate README subcommand
+    generate_readme_parser = generate_subparsers.add_parser(
+        "readme",
+        help="Generate README.md documentation",
+    )
+    add_handler_args(generate_readme_parser, ReadmeHandlerConfig.model_fields, "README Generation Configuration")
+
+    # Generate AI Rules subcommand
+    generate_ai_rules_parser = generate_subparsers.add_parser(
+        "ai-rules",
+        help="Generate AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/)",
+    )
+    add_handler_args(generate_ai_rules_parser, AIRulesHandlerConfig.model_fields, "AI Rules Generation Configuration")
 
     # Cronjob command
     cronjob_parser = subparsers.add_parser("cronjob", help="Run cronjob")
@@ -192,14 +230,20 @@ async def main() -> Optional[int]:
 
     # Exit if no command is provided
     if not args.command:
-        print("Error: Please specify a command (analyze, document, cronjob)")
+        print("Error: Please specify a command (analyze, generate, cronjob)")
         return 1
 
     match args.command:
         case "analyze":
             await analyze(args)
-        case "document":
-            await document(args)
+        case "generate":
+            if args.sub_command == "readme":
+                await generate_readme(args)
+            elif args.sub_command == "ai-rules":
+                await generate_ai_rules(args)
+            else:
+                print(f"Error: Unknown generate sub-command '{args.sub_command}'")
+                return 1
         case "cronjob":
             if args.sub_command == "analyze":
                 await cronjob_analyze(args)

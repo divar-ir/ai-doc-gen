@@ -1,0 +1,330 @@
+---
+description: Guidelines for developing AI agents and tools using pydantic-ai
+globs:
+  - "src/agents/**/*.py"
+  - "src/handlers/**/*.py"
+alwaysApply: false
+---
+
+# AI Agent Development Guidelines
+
+## Agent Architecture
+
+### Multi-Agent Coordination
+
+The system uses **concurrent multi-agent execution** with error isolation:
+
+```python
+# Example from AnalyzerAgent
+async def run(self):
+    agent_tasks = {}
+    
+    if not self._config.exclude_code_structure:
+        agent_tasks["Structure"] = self._run_agent(
+            agent=self._structure_analyzer_agent,
+            user_prompt=self._render_prompt("agents.structure_analyzer.user_prompt"),
+            file_path=self._config.repo_path / ".ai" / "docs" / "structure_analysis.md",
+        )
+    
+    # Run all agents concurrently
+    results = await asyncio.gather(*agent_tasks.values(), return_exceptions=True)
+    
+    # Validate partial success
+    self.validate_succession(analysis_files)
+```
+
+### Agent Configuration Pattern
+
+```python
+class MyAgentConfig(BaseModel):
+    repo_path: Path = Field(..., description="Repository path")
+    exclude_feature: bool = Field(default=False, description="Exclude feature")
+    custom_setting: str = Field(default="default", description="Custom setting")
+
+class MyAgent:
+    def __init__(self, cfg: MyAgentConfig) -> None:
+        self._config = cfg
+        self._prompt_manager = PromptManager(
+            file_path=Path(__file__).parent / "prompts" / "my_agent.yaml"
+        )
+```
+
+## LLM Model Configuration
+
+### Model Property Pattern
+
+```python
+@property
+def _llm_model(self) -> Tuple[Model, ModelSettings]:
+    retrying_http_client = create_retrying_client()
+    
+    # Support multiple providers
+    if "gemini" in config.MY_LLM_MODEL:
+        model = GeminiModel(
+            model_name=config.MY_LLM_MODEL,
+            provider=CustomGeminiGLA(
+                api_key=config.MY_LLM_API_KEY,
+                base_url=config.MY_LLM_BASE_URL,
+                http_client=retrying_http_client,
+            ),
+        )
+    else:
+        model = OpenAIModel(
+            model_name=config.MY_LLM_MODEL,
+            provider=OpenAIProvider(
+                base_url=config.MY_LLM_BASE_URL,
+                api_key=config.MY_LLM_API_KEY,
+                http_client=retrying_http_client,
+            ),
+        )
+    
+    settings = ModelSettings(
+        temperature=config.MY_LLM_TEMPERATURE,
+        max_tokens=config.MY_LLM_MAX_TOKENS,
+        timeout=config.MY_LLM_TIMEOUT,
+        parallel_tool_calls=config.MY_PARALLEL_TOOL_CALLS,
+    )
+    
+    return model, settings
+```
+
+### Agent Instantiation
+
+```python
+@property
+def _my_specialized_agent(self) -> Agent:
+    model, model_settings = self._llm_model
+    
+    return Agent(
+        name="My Specialized Agent",
+        model=model,
+        model_settings=model_settings,
+        system_prompt=self._render_prompt("agents.my_agent.system_prompt"),
+        tools=[
+            FileReadTool().get_tool(),
+            ListFilesTool().get_tool(),
+        ],
+        retries=config.MY_AGENT_RETRIES,
+    )
+```
+
+## Prompt Management
+
+### YAML Prompt Structure
+
+```yaml
+# src/agents/prompts/my_agent.yaml
+agents:
+  my_agent:
+    system_prompt: |
+      You are a specialized code analyzer.
+      
+      Your task is to analyze {{ repo_path }} and provide insights.
+      
+      Available tools:
+      - Read-File: Read file contents with line ranges
+      - List-Files: List directory contents with filtering
+    
+    user_prompt: |
+      Analyze the repository at {{ repo_path }}.
+      
+      Focus on:
+      1. Architecture patterns
+      2. Code organization
+      3. Key components
+```
+
+### Prompt Rendering
+
+```python
+def _render_prompt(self, key: str) -> str:
+    return self._prompt_manager.render_prompt(
+        key=key,
+        repo_path=str(self._config.repo_path),
+        custom_var=self._config.custom_setting,
+    )
+```
+
+## Tool Development
+
+### Tool Interface
+
+```python
+from pydantic_ai import Tool
+from pydantic_ai.exceptions import ModelRetry
+from opentelemetry import trace
+import config
+from utils import Logger
+
+class MyCustomTool:
+    def get_tool(self):
+        return Tool(
+            self._run,
+            name="My-Custom-Tool",
+            takes_ctx=False,
+            max_retries=config.TOOL_MY_CUSTOM_TOOL_MAX_RETRIES,
+        )
+    
+    def _run(self, param1: str, param2: int = 10) -> str:
+        """
+        Tool description that the LLM sees.
+        
+        Args:
+            param1: Description of param1
+            param2: Description of param2 (default: 10)
+        
+        Returns:
+            Description of return value
+        """
+        Logger.debug(f"Running My-Custom-Tool with param1={param1}, param2={param2}")
+        
+        span = trace.get_current_span()
+        span.set_attribute("tool.input.param1", param1)
+        span.set_attribute("tool.input.param2", param2)
+        
+        try:
+            # Tool implementation
+            result = self._do_work(param1, param2)
+            
+            span.set_attribute("tool.output", result)
+            Logger.debug(f"My-Custom-Tool completed successfully")
+            
+            return result
+        
+        except FileNotFoundError as e:
+            raise ModelRetry(message=f"File not found: {e}")
+        except PermissionError as e:
+            raise ModelRetry(message=f"Permission denied: {e}")
+        except Exception as e:
+            raise ModelRetry(message=f"Tool failed: {e}")
+```
+
+### Existing Tools
+
+**FileReadTool** - Read file contents with line ranges:
+```python
+FileReadTool().get_tool()
+# Usage by LLM: Read-File(file_path="src/main.py", line_number=0, line_count=200)
+```
+
+**ListFilesTool** - List directory contents with filtering:
+```python
+ListFilesTool().get_tool()
+# Usage by LLM: List-Files(directory="src", ignored_dirs=["__pycache__"], ignored_extensions=[".pyc"])
+```
+
+## Agent Execution Patterns
+
+### Single Agent Execution
+
+```python
+async def _run_agent(
+    self,
+    agent: Agent,
+    user_prompt: str,
+    file_path: Path,
+) -> AgentRunResult:
+    Logger.info(f"Running agent: {agent.name}")
+    
+    span = trace.get_current_span()
+    span.add_event(name=f"Running {agent.name}", attributes={"agent_name": agent.name})
+    
+    start_time = time.time()
+    
+    try:
+        result = await agent.run(user_prompt=user_prompt)
+        
+        # Write output
+        output = self._cleanup_output(result.output)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(output)
+        
+        # Log usage
+        elapsed_time = time.time() - start_time
+        Logger.info(
+            f"Agent {agent.name} completed",
+            {
+                "total_tokens": result.usage().total_tokens,
+                "request_tokens": result.usage().request_tokens,
+                "response_tokens": result.usage().response_tokens,
+                "execution_time_seconds": round(elapsed_time, 2),
+            },
+        )
+        
+        return result
+    
+    except UnexpectedModelBehavior as e:
+        Logger.error(f"Unexpected model behavior in {agent.name}: {e}")
+        raise
+    except Exception as e:
+        Logger.error(f"Error running {agent.name}: {e}", exc_info=True)
+        raise
+```
+
+### Validation Pattern
+
+```python
+def validate_succession(self, analysis_files: List[Path]):
+    """Validate that at least some analysis files were generated."""
+    missing_files = [f for f in analysis_files if not f.exists()]
+    successful_count = len(analysis_files) - len(missing_files)
+    
+    if len(missing_files) == len(analysis_files):
+        Logger.error("Complete analysis failure: no analysis files were generated")
+        raise ValueError("Complete analysis failure: no analysis files were generated")
+    
+    if missing_files:
+        Logger.warning(
+            f"Partial analysis success: {successful_count}/{len(analysis_files)} files generated. "
+            f"Missing: {[f.name for f in missing_files]}"
+        )
+    else:
+        Logger.info(f"All {len(analysis_files)} analysis files generated successfully")
+```
+
+## Handler Development
+
+### Handler Structure
+
+```python
+from handlers.base_handler import BaseHandler, BaseHandlerConfig
+from pydantic import Field
+
+class MyHandlerConfig(BaseHandlerConfig):
+    custom_option: bool = Field(default=False, description="Custom option")
+
+class MyHandler(BaseHandler):
+    def __init__(self, config: MyHandlerConfig):
+        super().__init__(config)
+        self.agent = MyAgent(config)
+    
+    async def handle(self):
+        Logger.info("Starting my handler")
+        
+        tracer = trace.get_tracer("my-handler")
+        with tracer.start_as_current_span("My Handler") as span:
+            span.set_attributes({
+                "repo_path": str(self.config.repo_path),
+                "custom_option": self.config.custom_option,
+            })
+            
+            result = await self.agent.run()
+            
+            span.set_attribute("result_size", len(result.output))
+        
+        Logger.info("My handler completed")
+        return result
+```
+
+## Best Practices
+
+1. **Always use concurrent execution** for multiple agents
+2. **Implement partial success handling** - don't fail completely if some agents succeed
+3. **Use OpenTelemetry spans** for all major operations
+4. **Log token usage** for cost tracking
+5. **Provide clear tool descriptions** - LLMs rely on them
+6. **Use ModelRetry** for recoverable tool errors
+7. **Validate outputs** after agent execution
+8. **Clean up absolute paths** in outputs for portability
+9. **Use retry clients** for all HTTP operations
+10. **Support multiple LLM providers** (OpenAI, Gemini, etc.)

@@ -22,6 +22,7 @@ Read the full story behind this project:
 
 - **Multi-Agent Analysis**: Specialized AI agents for code structure, data flow, dependency, request flow, and API analysis
 - **Automated Documentation**: Generates comprehensive README files with configurable sections
+- **AI Assistant Configuration**: Automatically generates CLAUDE.md, AGENTS.md, and .cursor/rules/ files for AI coding assistants
 - **GitLab Integration**: Automated analysis for GitLab projects with merge request creation
 - **Concurrent Processing**: Parallel execution of analysis agents for improved performance
 - **Flexible Configuration**: YAML-based configuration with environment variable overrides
@@ -70,31 +71,66 @@ cp config_example.yaml .ai/config.yaml
 # Analyze your repository
 uv run src/main.py analyze --repo-path .
 
-# Generate documentation
-uv run src/main.py document --repo-path .
+# Generate README documentation
+uv run src/main.py generate readme --repo-path .
+
+# Generate AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/)
+uv run src/main.py generate ai-rules --repo-path .
 ```
 
-Generated documentation will be saved to `.ai/docs/` directory.
+Generated documentation will be saved to `.ai/docs/` directory, and AI configuration files will be placed in your repository root.
 
 ## Usage
 
+### Available Commands
+
+```bash
+# Analyze codebase
+uv run src/main.py analyze --repo-path <path>
+
+# Generate README documentation
+uv run src/main.py generate readme --repo-path <path>
+
+# Generate AI assistant configuration files
+uv run src/main.py generate ai-rules --repo-path <path>
+
+# Run cronjob (GitLab integration)
+uv run src/main.py cronjob analyze
+```
+
 ### Advanced Options
 
+**Analysis Options:**
 ```bash
 # Analyze with specific exclusions
 uv run src/main.py analyze --repo-path . --exclude-code-structure --exclude-data-flow
 
-# Generate with specific section exclusions
-uv run src/main.py document --repo-path . --exclude-architecture --exclude-c4-model
-
-# Use existing README as context
-uv run src/main.py document --repo-path . --use-existing-readme
-
 # Use custom configuration file
 uv run src/main.py analyze --repo-path . --config /path/to/config.yaml
+```
 
-# GitLab cronjob integration
-uv run src/main.py cronjob analyze
+**README Generation Options:**
+```bash
+# Generate with specific section exclusions
+uv run src/main.py generate readme --repo-path . --exclude-architecture --exclude-c4-model
+
+# Use existing README as context
+uv run src/main.py generate readme --repo-path . --use-existing-readme
+```
+
+**AI Rules Generation Options:**
+```bash
+# Skip overwriting existing files
+uv run src/main.py generate ai-rules --repo-path . \
+    --skip-existing-claude-md \
+    --skip-existing-agents-md \
+    --skip-existing-cursor-rules
+
+# Customize detail level and line limits
+uv run src/main.py generate ai-rules --repo-path . \
+    --detail-level comprehensive \
+    --max-claude-lines 600 \
+    --max-agents-lines 150
 ```
 
 ## Configuration
@@ -111,11 +147,14 @@ You can use CLI flags for quick configuration overrides. See [`config_example.ya
 
 ## Architecture
 
-The system uses a **multi-agent architecture** with specialized AI agents for different types of code analysis:
+The system uses a **multi-agent architecture** with specialized AI agents for different types of code analysis and generation:
 
-- **CLI Layer**: Entry point with command parsing
-- **Handler Layer**: Command-specific business logic (analyze, document, cronjob)
+- **CLI Layer**: Entry point with command parsing and subcommand routing
+- **Handler Layer**: Command-specific business logic (analyze, generate, cronjob)
 - **Agent Layer**: AI-powered analysis and documentation generation
+  - Analyzer agents: Structure, data flow, dependencies, request flow, API analysis
+  - Documentation agent: README generation
+  - AI Rules generator: CLAUDE.md, AGENTS.md, and Cursor rules generation
 - **Tool Layer**: File system operations and utilities
 
 ### Technology Stack
