@@ -7,14 +7,12 @@ from opentelemetry import trace
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
-from pydantic_ai.models.gemini import GeminiModel
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
 from utils import Logger, PromptManager, create_retrying_client
-from utils.custom_models.gemini_provider import CustomGeminiGLA
 
 from .tools import FileReadTool
 
@@ -104,8 +102,8 @@ class DocumenterAgent:
                 f"{agent.name} run completed",
                 data={
                     "total_tokens": result.usage().total_tokens,
-                    "request_tokens": result.usage().request_tokens,
-                    "response_tokens": result.usage().response_tokens,
+                    "request_tokens": result.usage().input_tokens,
+                    "response_tokens": result.usage().output_tokens,
                     "total_time": f"{total_time // 60}m {total_time % 60}s",
                     "total_messages": len(result.all_messages()),
                 },
@@ -131,24 +129,14 @@ class DocumenterAgent:
         base_url = config.DOCUMENTER_LLM_BASE_URL
         api_key = config.DOCUMENTER_LLM_API_KEY
 
-        if "gemini" in model_name:
-            model = GeminiModel(
-                model_name=model_name,
-                provider=CustomGeminiGLA(
-                    api_key=api_key,
-                    base_url=base_url,
-                    http_client=retrying_http_client,
-                ),
-            )
-        else:
-            model = OpenAIModel(
-                model_name=model_name,
-                provider=OpenAIProvider(
-                    base_url=base_url,
-                    api_key=api_key,
-                    http_client=retrying_http_client,
-                ),
-            )
+        model = OpenAIChatModel(
+            model_name=model_name,
+            provider=OpenAIProvider(
+                base_url=base_url,
+                api_key=api_key,
+                http_client=retrying_http_client,
+            ),
+        )
 
         settings = ModelSettings(
             temperature=config.DOCUMENTER_LLM_TEMPERATURE,

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, UnexpectedModelBehavior
 from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
@@ -151,8 +151,8 @@ class AnalyzerAgent:
                 f"{agent.name} run completed",
                 data={
                     "total_tokens": result.usage().total_tokens,
-                    "request_tokens": result.usage().request_tokens,
-                    "response_tokens": result.usage().response_tokens,
+                    "request_tokens": result.usage().input_tokens,
+                    "response_tokens": result.usage().output_tokens,
                     "total_time": f"{total_time // 60}m {total_time % 60}s",
                     "total_messages": len(result.all_messages()),
                 },
@@ -179,7 +179,7 @@ class AnalyzerAgent:
     def _llm_model(self) -> Tuple[Model, ModelSettings]:
         retrying_http_client = create_retrying_client()
 
-        model = OpenAIModel(
+        model = OpenAIChatModel(
             model_name=config.ANALYZER_LLM_MODEL,
             provider=OpenAIProvider(
                 base_url=config.ANALYZER_LLM_BASE_URL,

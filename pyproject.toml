@@ -22,7 +22,16 @@ dependencies = [
 line-length = 120
 indent-width = 4
 target-version = "py313"
-lint.select = ["I", "F401"]
+fix = true
+src = ["src"]
+
+[tool.ruff.analyze]
+detect-string-imports = true
+direction = "dependencies"
+
+[tool.ruff.format]
+docstring-code-format = true
+
 
 [dependency-groups]
 dev = [

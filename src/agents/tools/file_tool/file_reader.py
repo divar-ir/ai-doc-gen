@@ -52,7 +52,7 @@ class FileReadTool:
                 trace.get_current_span().set_attribute("output", output)
 
                 return output
-        except PermissionError:
-            raise ModelRetry(message="Permission denied when trying to read file")
+        except PermissionError as e:
+            raise ModelRetry(message="Permission denied when trying to read file") from e
         except Exception as e:
-            raise ModelRetry(message=f"Failed to read file {file_path}. {str(e)}")
+            raise ModelRetry(message=f"Failed to read file {file_path}. {str(e)}") from e

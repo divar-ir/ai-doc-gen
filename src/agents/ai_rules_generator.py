@@ -7,7 +7,7 @@ from opentelemetry import trace
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
@@ -82,7 +82,7 @@ class AIRulesGeneratorAgent:
         self._prompt_manager = PromptManager(file_path=Path(__file__).parent / "prompts" / "ai_rules_generator.yaml")
 
     async def run(self) -> AIRulesOutput:
-        Logger.info(f"Running AI rules generator agent with concurrent generation")
+        Logger.info("Running AI rules generator agent with concurrent generation")
 
         self._verify_analysis_files()
 
@@ -176,19 +176,19 @@ class AIRulesGeneratorAgent:
         if self._config.skip_existing_claude_md:
             claude_path = self._config.repo_path / "CLAUDE.md"
             if claude_path.exists():
-                Logger.info(f"Skipping CLAUDE.md - file exists and skip_existing_claude_md=True")
+                Logger.info("Skipping CLAUDE.md - file exists and skip_existing_claude_md=True")
                 skip_files["claude_md"] = True
 
         if self._config.skip_existing_agents_md:
             agents_path = self._config.repo_path / "AGENTS.md"
             if agents_path.exists():
-                Logger.info(f"Skipping AGENTS.md - file exists and skip_existing_agents_md=True")
+                Logger.info("Skipping AGENTS.md - file exists and skip_existing_agents_md=True")
                 skip_files["agents_md"] = True
 
         if self._config.skip_existing_cursor_rules:
             cursor_rules_path = self._config.repo_path / ".cursor" / "rules"
             if cursor_rules_path.exists() and any(cursor_rules_path.glob("*.mdc")):
-                Logger.info(f"Skipping Cursor rules - directory exists and skip_existing_cursor_rules=True")
+                Logger.info("Skipping Cursor rules - directory exists and skip_existing_cursor_rules=True")
                 skip_files["cursor_rules"] = True
 
         return skip_files
@@ -204,14 +204,14 @@ class AIRulesGeneratorAgent:
             claude_path = self._config.repo_path / "CLAUDE.md"
             if claude_path.exists():
                 existing_files["claude_md"] = claude_path.read_text()
-                Logger.info(f"Using existing CLAUDE.md as reference")
+                Logger.info("Using existing CLAUDE.md as reference")
 
         # Read AGENTS.md (unless skipping)
         if not self._config.skip_existing_agents_md:
             agents_path = self._config.repo_path / "AGENTS.md"
             if agents_path.exists():
                 existing_files["agents_md"] = agents_path.read_text()
-                Logger.info(f"Using existing AGENTS.md as reference")
+                Logger.info("Using existing AGENTS.md as reference")
 
         # Read Cursor rules (unless skipping) - support both new and legacy formats
         if not self._config.skip_existing_cursor_rules:
@@ -227,14 +227,14 @@ class AIRulesGeneratorAgent:
                         cursor_rules_content.append(f"## {mdc_file.name}\n{mdc_file.read_text()}")
 
             # Check legacy format: .cursorrules (for backward compatibility)
-            legacy_cursorrules = self._config.repo_path / ".cursorrules"
-            if legacy_cursorrules.exists():
-                Logger.info(f"Found legacy .cursorrules file - using as reference")
-                cursor_rules_content.append(f"## Legacy .cursorrules\n{legacy_cursorrules.read_text()}")
+            legacy_cursor_rules = self._config.repo_path / ".cursorrules"
+            if legacy_cursor_rules.exists():
+                Logger.info("Found legacy .cursorrules file - using as reference")
+                cursor_rules_content.append(f"## Legacy .cursorrules\n{legacy_cursor_rules.read_text()}")
 
             if cursor_rules_content:
                 existing_files["cursor_rules"] = "\n\n".join(cursor_rules_content)
-                Logger.info(f"Using existing Cursor rules as reference")
+                Logger.info("Using existing Cursor rules as reference")
 
         return existing_files
 
@@ -256,8 +256,8 @@ class AIRulesGeneratorAgent:
                 f"{agent_name} run completed",
                 data={
                     "total_tokens": result.usage().total_tokens,
-                    "request_tokens": result.usage().request_tokens,
-                    "response_tokens": result.usage().response_tokens,
+                    "request_tokens": result.usage().input_tokens,
+                    "response_tokens": result.usage().output_tokens,
                     "total_time": f"{total_time // 60}m {total_time % 60}s",
                     "total_messages": len(result.all_messages()),
                 },
@@ -277,17 +277,12 @@ class AIRulesGeneratorAgent:
 
     @property
     def _markdown_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model_name = config.AI_RULES_LLM_MODEL
-        base_url = config.AI_RULES_LLM_BASE_URL
-        api_key = config.AI_RULES_LLM_API_KEY
-        http_client = create_retrying_client()
-
-        model = OpenAIModel(
-            model_name=model_name,
+        model = OpenAIChatModel(
+            model_name=config.AI_RULES_LLM_MODEL,
             provider=OpenAIProvider(
-                base_url=base_url,
-                api_key=api_key,
-                http_client=http_client,
+                base_url=config.AI_RULES_LLM_BASE_URL,
+                api_key=config.AI_RULES_LLM_API_KEY,
+                http_client=create_retrying_client(),
             ),
         )
 
@@ -302,17 +297,12 @@ class AIRulesGeneratorAgent:
 
     @property
     def _cursor_rules_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model_name = config.AI_RULES_LLM_MODEL
-        base_url = config.AI_RULES_LLM_BASE_URL
-        api_key = config.AI_RULES_LLM_API_KEY
-        http_client = create_retrying_client()
-
-        model = OpenAIModel(
-            model_name=model_name,
+        model = OpenAIChatModel(
+            model_name=config.AI_RULES_LLM_MODEL,
             provider=OpenAIProvider(
-                base_url=base_url,
-                api_key=api_key,
-                http_client=http_client,
+                base_url=config.AI_RULES_LLM_BASE_URL,
+                api_key=config.AI_RULES_LLM_API_KEY,
+                http_client=create_retrying_client(),
             ),
         )
 

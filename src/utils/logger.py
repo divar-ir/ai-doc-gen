@@ -29,11 +29,7 @@ class Logger:
         from pathlib import Path
 
         # Initialize the logger
-        Logger.init(
-            log_dir=Path("./logs"),
-            file_level=logging.INFO,
-            console_level=logging.WARNING
-        )
+        Logger.init(log_dir=Path("./logs"), file_level=logging.INFO, console_level=logging.WARNING)
 
         # Use the logger
         Logger.info("Agent started")

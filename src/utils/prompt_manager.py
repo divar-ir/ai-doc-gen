@@ -43,8 +43,8 @@ class PromptManager:
         try:
             for key in path.split("."):
                 current = current[key]
-        except (KeyError, TypeError):
-            raise ValueError(f"Path '{path}' not found in prompts data")
+        except (KeyError, TypeError) as e:
+            raise ValueError(f"Path '{path}' not found in prompts data") from e
 
         return current
 
@@ -64,7 +64,7 @@ class PromptManager:
             prompt = self._traverse_path(self._prompt_data, prompt_name)
             return copy(prompt)
         except ValueError as e:
-            raise ValueError(f"Prompt '{prompt_name}' not found: {e}")
+            raise ValueError(f"Prompt '{prompt_name}' not found: {e}") from e
 
     def render_prompt(self, prompt_name: str, **prompt_args) -> str:
         """Render a prompt template with given parameters.
