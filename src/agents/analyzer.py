@@ -161,7 +161,7 @@ class AnalyzerAgent:
             if not file_path.exists():
                 file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(file_path, "w") as f:
+            with open(file_path, "w",encoding="utf-8") as f:
                 output = self._cleanup_output(result.output)
                 f.write(output)
 
