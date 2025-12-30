@@ -23,10 +23,11 @@ def str_to_bool(value: str) -> bool:
 
 VERSION = os.getenv("APP_VERSION", "1.2.0")
 
-# Analyzer
+# Analyzer - Model name follows LiteLLM format (e.g., "gpt-4o", "azure/deployment-name", "anthropic/claude-3-opus")
 ANALYZER_LLM_MODEL = os.environ["ANALYZER_LLM_MODEL"]
-ANALYZER_LLM_BASE_URL = os.environ["ANALYZER_LLM_BASE_URL"]
-ANALYZER_LLM_API_KEY = os.environ["ANALYZER_LLM_API_KEY"]
+ANALYZER_LLM_BASE_URL = os.getenv("ANALYZER_LLM_BASE_URL")  # Optional: overrides provider default
+ANALYZER_LLM_API_KEY = os.getenv("ANALYZER_LLM_API_KEY")  # Optional: overrides env var for provider
+ANALYZER_LLM_API_VERSION = os.getenv("ANALYZER_LLM_API_VERSION")  # Optional: for Azure OpenAI
 ANALYZER_PARALLEL_TOOL_CALLS = str_to_bool(os.getenv("ANALYZER_PARALLEL_TOOL_CALLS", "true"))
 
 # Analyzer Agent Settings
@@ -36,10 +37,11 @@ ANALYZER_LLM_MAX_TOKENS = int(os.getenv("ANALYZER_LLM_MAX_TOKENS", "8192"))
 ANALYZER_LLM_TEMPERATURE = float(os.getenv("ANALYZER_LLM_TEMPERATURE", "0.0"))
 ANALYZER_MAX_WORKERS = int(os.getenv("ANALYZER_MAX_WORKERS", "0"))
 
-# Documenter
+# Documenter - Model name follows LiteLLM format
 DOCUMENTER_LLM_MODEL = os.environ["DOCUMENTER_LLM_MODEL"]
-DOCUMENTER_LLM_BASE_URL = os.environ["DOCUMENTER_LLM_BASE_URL"]
-DOCUMENTER_LLM_API_KEY = os.environ["DOCUMENTER_LLM_API_KEY"]
+DOCUMENTER_LLM_BASE_URL = os.getenv("DOCUMENTER_LLM_BASE_URL")  # Optional: overrides provider default
+DOCUMENTER_LLM_API_KEY = os.getenv("DOCUMENTER_LLM_API_KEY")  # Optional: overrides env var for provider
+DOCUMENTER_LLM_API_VERSION = os.getenv("DOCUMENTER_LLM_API_VERSION")  # Optional: for Azure OpenAI
 DOCUMENTER_PARALLEL_TOOL_CALLS = str_to_bool(os.getenv("DOCUMENTER_PARALLEL_TOOL_CALLS", "true"))
 
 # Documenter Agent Settings
@@ -48,10 +50,11 @@ DOCUMENTER_LLM_TIMEOUT = int(os.getenv("DOCUMENTER_LLM_TIMEOUT", "180"))
 DOCUMENTER_LLM_MAX_TOKENS = int(os.getenv("DOCUMENTER_LLM_MAX_TOKENS", "8192"))
 DOCUMENTER_LLM_TEMPERATURE = float(os.getenv("DOCUMENTER_LLM_TEMPERATURE", "0.0"))
 
-# AI Rules Generator
+# AI Rules Generator - Model name follows LiteLLM format
 AI_RULES_LLM_MODEL = os.environ.get("AI_RULES_LLM_MODEL", DOCUMENTER_LLM_MODEL)
-AI_RULES_LLM_BASE_URL = os.environ.get("AI_RULES_LLM_BASE_URL", DOCUMENTER_LLM_BASE_URL)
-AI_RULES_LLM_API_KEY = os.environ.get("AI_RULES_LLM_API_KEY", DOCUMENTER_LLM_API_KEY)
+AI_RULES_LLM_BASE_URL = os.getenv("AI_RULES_LLM_BASE_URL", DOCUMENTER_LLM_BASE_URL)
+AI_RULES_LLM_API_KEY = os.getenv("AI_RULES_LLM_API_KEY", DOCUMENTER_LLM_API_KEY)
+AI_RULES_LLM_API_VERSION = os.getenv("AI_RULES_LLM_API_VERSION", DOCUMENTER_LLM_API_VERSION)
 AI_RULES_PARALLEL_TOOL_CALLS = str_to_bool(os.getenv("AI_RULES_PARALLEL_TOOL_CALLS", "true"))
 
 # AI Rules Agent Settings
@@ -66,12 +69,28 @@ ENABLE_LANGFUSE = str_to_bool(os.getenv("ENABLE_LANGFUSE", "false"))
 LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
 
-# Gitlab
-GITLAB_API_URL = os.getenv("GITLAB_API_URL", "https://git.divar.cloud")
-GITLAB_USER_NAME = os.getenv("GITLAB_USER_NAME", "AI Analyzer")
-GITLAB_USER_USERNAME = os.getenv("GITLAB_USER_USERNAME", "agent_doc")
-GITLAB_USER_EMAIL = os.getenv("GITLAB_USER_EMAIL")
+# SCM Provider Configuration (Provider-Agnostic)
+# Supported values: "gitlab", "bitbucket_server"
+SCM_PROVIDER = os.getenv("SCM_PROVIDER", "gitlab")
+SCM_API_URL = os.getenv("SCM_API_URL", os.getenv("GITLAB_API_URL", "https://git.divar.cloud"))
+SCM_GIT_USER_NAME = os.getenv("SCM_GIT_USER_NAME", os.getenv("GITLAB_USER_NAME", "AI Analyzer"))
+SCM_GIT_USER_USERNAME = os.getenv("SCM_GIT_USER_USERNAME", os.getenv("GITLAB_USER_USERNAME", "agent_doc"))
+SCM_GIT_USER_EMAIL = os.getenv("SCM_GIT_USER_EMAIL", os.getenv("GITLAB_USER_EMAIL"))
+
+# GitLab-specific settings (used when SCM_PROVIDER=gitlab)
+GITLAB_API_URL = os.getenv("GITLAB_API_URL", "https://git.divar.cloud")  # Deprecated: use SCM_API_URL
+GITLAB_USER_NAME = os.getenv("GITLAB_USER_NAME", "AI Analyzer")  # Deprecated: use SCM_GIT_USER_NAME
+GITLAB_USER_USERNAME = os.getenv("GITLAB_USER_USERNAME", "agent_doc")  # Deprecated: use SCM_GIT_USER_USERNAME
+GITLAB_USER_EMAIL = os.getenv("GITLAB_USER_EMAIL")  # Deprecated: use SCM_GIT_USER_EMAIL
 GITLAB_OAUTH_TOKEN = os.getenv("GITLAB_OAUTH_TOKEN")
+GITLAB_PRIVATE_TOKEN = os.getenv("GITLAB_PRIVATE_TOKEN")
+
+# Bitbucket Server-specific settings (used when SCM_PROVIDER=bitbucket_server)
+# Note: This is for Bitbucket SERVER (self-hosted), not Bitbucket Cloud
+BITBUCKET_URL = os.getenv("BITBUCKET_URL")  # Alternative to SCM_API_URL for Bitbucket
+BITBUCKET_USERNAME = os.getenv("BITBUCKET_USERNAME")
+BITBUCKET_PASSWORD = os.getenv("BITBUCKET_PASSWORD")
+BITBUCKET_TOKEN = os.getenv("BITBUCKET_TOKEN")  # Personal access token (alternative to username/password)
 
 # General
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -83,12 +102,6 @@ FILE_LOG_LEVEL = getattr(logging, os.getenv("FILE_LOG_LEVEL", "INFO").upper())
 # Agent Tools Settings
 TOOL_FILE_READER_MAX_RETRIES = int(os.getenv("TOOL_FILE_READER_MAX_RETRIES", "2"))
 TOOL_LIST_FILES_MAX_RETRIES = int(os.getenv("TOOL_LIST_FILES_MAX_RETRIES", "2"))
-
-# HTTP Retry Client Settings
-HTTP_RETRY_MAX_ATTEMPTS = int(os.getenv("HTTP_RETRY_MAX_ATTEMPTS", "5"))
-HTTP_RETRY_MULTIPLIER = int(os.getenv("HTTP_RETRY_MULTIPLIER", "1"))
-HTTP_RETRY_MAX_WAIT_PER_ATTEMPT = int(os.getenv("HTTP_RETRY_MAX_WAIT_PER_ATTEMPT", "60"))
-HTTP_RETRY_MAX_TOTAL_WAIT = int(os.getenv("HTTP_RETRY_MAX_TOTAL_WAIT", "300"))
 
 # --------------------------
 # Helper Function

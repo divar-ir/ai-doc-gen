@@ -8,12 +8,11 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, UnexpectedModelBehavior
 from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
-from utils import Logger, PromptManager, WorkerPool, create_retrying_client
+from llm import create_llm_model
+from utils import Logger, PromptManager, WorkerPool
 
 from .tools import FileReadTool, ListFilesTool
 
@@ -189,25 +188,16 @@ class AnalyzerAgent:
 
     @property
     def _llm_model(self) -> Tuple[Model, ModelSettings]:
-        retrying_http_client = create_retrying_client()
-
-        model = OpenAIChatModel(
+        return create_llm_model(
             model_name=config.ANALYZER_LLM_MODEL,
-            provider=OpenAIProvider(
-                base_url=config.ANALYZER_LLM_BASE_URL,
-                api_key=config.ANALYZER_LLM_API_KEY,
-                http_client=retrying_http_client,
-            ),
-        )
-
-        settings = ModelSettings(
+            api_base=config.ANALYZER_LLM_BASE_URL,
+            api_key=config.ANALYZER_LLM_API_KEY,
+            api_version=config.ANALYZER_LLM_API_VERSION,
             temperature=config.ANALYZER_LLM_TEMPERATURE,
             max_tokens=config.ANALYZER_LLM_MAX_TOKENS,
             timeout=config.ANALYZER_LLM_TIMEOUT,
             parallel_tool_calls=config.ANALYZER_PARALLEL_TOOL_CALLS,
         )
-
-        return model, settings
 
     @property
     def _structure_analyzer_agent(self) -> Agent:

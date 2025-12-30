@@ -24,9 +24,10 @@ Read the full story behind this project:
 - **Automated Documentation**: Generates comprehensive README files with configurable sections
 - **AI Assistant Configuration**: Automatically generates CLAUDE.md, AGENTS.md, and .cursor/rules/ files for AI coding assistants
 - **GitLab Integration**: Automated analysis for GitLab projects with merge request creation
+- **Bitbucket Integration**: Automated analysis for Bitbucket repositories with pull request creation
 - **Concurrent Processing**: Parallel execution of analysis agents for improved performance
 - **Flexible Configuration**: YAML-based configuration with environment variable overrides
-- **Multiple LLM Support**: Works with any OpenAI-compatible API (OpenAI, OpenRouter, local models, etc.)
+- **Multiple LLM Support**: Works with any LLM supported by [LiteLLM](https://docs.litellm.ai/docs/)
 - **Observability**: Built-in monitoring with OpenTelemetry tracing and Langfuse integration
 
 ## Installation
@@ -35,7 +36,7 @@ Read the full story behind this project:
 
 - Python 3.13
 - Git
-- API access to an OpenAI-compatible LLM provider
+- API access to an LLM provider supported by [LiteLLM](https://docs.litellm.ai/docs/)
 
 1. Clone the repository:
 ```bash
@@ -161,7 +162,7 @@ The system uses a **multi-agent architecture** with specialized AI agents for di
 
 - **Python 3.13** with pydantic-ai for AI agent orchestration
 - **OpenAI-compatible APIs** for LLM access (OpenAI, OpenRouter, etc.)
-- **GitPython & python-gitlab** for repository operations
+- **GitPython & python-gitlab / atlassian-python-api** for repository operations
 - **OpenTelemetry & Langfuse** for observability
 - **YAML + Pydantic** for configuration management
 

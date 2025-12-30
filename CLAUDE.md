@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The AI Documentation Generator is a Python CLI tool that uses multi-agent AI to automatically analyze codebases and generate comprehensive documentation. It employs 5 specialized AI agents running concurrently to analyze code structure, dependencies, data flow, request flow, and APIs, then synthesizes results into professional README files and AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/). The system integrates with GitLab for automated project discovery and merge request creation.
+The AI Documentation Generator is a Python CLI tool that uses multi-agent AI to automatically analyze codebases and generate comprehensive documentation. It employs 5 specialized AI agents running concurrently to analyze code structure, dependencies, data flow, request flow, and APIs, then synthesizes results into professional README files and AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/). The system integrates with multiple SCM providers (GitLab, Bitbucket Server) for automated project discovery and pull request creation.
 
 ## Common Commands
 
@@ -29,8 +29,11 @@ uv run src/main.py generate readme --repo-path . --exclude-c4-model --use-existi
 # Generate AI rules with skip flags
 uv run src/main.py generate ai-rules --repo-path . --skip-existing-claude-md --skip-existing-agents-md
 
-# GitLab cronjob (automated batch processing)
+# SCM cronjob - GitLab (default provider)
 uv run src/main.py cronjob analyze --max-days-since-last-commit 14
+
+# SCM cronjob - Bitbucket Server (set SCM_PROVIDER=bitbucket_server in .env)
+uv run src/main.py cronjob analyze --namespace-id PROJECT_KEY
 
 # Run with custom config
 uv run src/main.py analyze --repo-path /path/to/project --config /path/to/config.yaml
@@ -135,7 +138,12 @@ src/
 │   ├── analyze.py            # Analysis orchestration
 │   ├── readme.py             # README generation
 │   ├── ai_rules.py           # AI rules generation (CLAUDE.md, AGENTS.md, .cursor/rules/)
-│   └── cronjob.py            # GitLab automation
+│   └── cronjob.py            # SCM automation (GitLab/Bitbucket)
+├── scm_providers/             # SCM provider abstractions
+│   ├── base.py               # Abstract SCM interface
+│   ├── factory.py            # Provider factory
+│   ├── gitlab_provider.py    # GitLab implementation
+│   └── bitbucket_server_provider.py  # Bitbucket Server implementation
 ├── agents/                    # AI agents
 │   ├── analyzer.py           # Multi-agent analyzer (5 concurrent agents)
 │   ├── documenter.py         # README generator
@@ -186,7 +194,9 @@ CLI Command (analyze, generate {readme|ai-rules}, cronjob)
     ↓
 main.py (parse_args, configure_logging, configure_langfuse)
     ↓
-Handler (AnalyzeHandler, ReadmeHandler, AIRulesHandler, JobAnalyzeHandler)
+Handler (AnalyzeHandler, ReadmeHandler, AIRulesHandler, CronjobAnalyzeHandler)
+    ↓
+SCM Provider (GitLabProvider, BitbucketServerProvider) [cronjob only]
     ↓
 Agent (AnalyzerAgent, DocumenterAgent, AIRulesGeneratorAgent)
     ↓
@@ -245,7 +255,9 @@ Handler Config Object
 - **uv Recommended**: Use `uv sync` instead of pip for faster installs
 - **Environment Variables**: Copy `.env.sample` to `.env` and fill in API keys
 - **LLM API Keys**: Need both `ANALYZER_LLM_API_KEY` and `DOCUMENTER_LLM_API_KEY`
-- **GitLab Token**: Required for cronjob command (`GITLAB_OAUTH_TOKEN`)
+- **SCM Provider**: Set `SCM_PROVIDER` env var (`gitlab` or `bitbucket_server`)
+- **GitLab Token**: Required for GitLab provider (`GITLAB_OAUTH_TOKEN` or `GITLAB_PRIVATE_TOKEN`)
+- **Bitbucket Token**: Required for Bitbucket Server provider (`BITBUCKET_TOKEN` or `BITBUCKET_USERNAME`/`BITBUCKET_PASSWORD`)
 
 ### Configuration Pitfalls
 - **Config Path Resolution**: If no `--config` specified, looks for `.ai/config.yaml` then `.ai/config.yml`
@@ -276,13 +288,20 @@ Handler Config Object
 - **Timeout**: 180s per request (configurable)
 - **Rate Limiting**: Respects Retry-After headers, exponential backoff
 
-### GitLab Integration
-- **Project Filtering**: Checks archived status, subgroups, commit history, existing branches/MRs
-- **Branch Naming**: `ai-analysis-{YYYY-MM-DD}` format
+### SCM Integration (GitLab/Bitbucket Server)
+- **Provider Selection**: Set `SCM_PROVIDER` env var (`gitlab` or `bitbucket_server`)
+- **Common Settings**: `SCM_API_URL`, `SCM_GIT_USER_NAME`, `SCM_GIT_USER_EMAIL`, `SCM_GIT_USER_USERNAME`
+- **GitLab Settings**: `GITLAB_OAUTH_TOKEN` or `GITLAB_PRIVATE_TOKEN`
+- **Bitbucket Settings**: `BITBUCKET_TOKEN` or `BITBUCKET_USERNAME`/`BITBUCKET_PASSWORD`
+- **Repository Filtering**: Checks archived status, namespaces, commit history, existing branches/PRs
+- **Branch Naming**: `ai-analyzer-{YYYY-MM-DD}` format
 - **Commit Message**: `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
 - **Skip CI**: Always includes `[skip ci]` to avoid triggering pipelines
 - **Cleanup**: Guaranteed via try-finally blocks
-- **Error Isolation**: Individual project failures don't stop batch
+- **Error Isolation**: Individual repository failures don't stop batch
+- **Terminology**:
+  - GitLab: Groups → Namespaces, Projects → Repositories, Merge Requests → Pull Requests
+  - Bitbucket: Projects → Namespaces, Repositories → Repositories, Pull Requests → Pull Requests
 
 ### Observability
 - **Langfuse Optional**: Set `ENABLE_LANGFUSE=false` to disable

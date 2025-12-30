@@ -7,12 +7,11 @@ from opentelemetry import trace
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models import Model
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
-from utils import Logger, PromptManager, create_retrying_client
+from llm import create_llm_model
+from utils import Logger, PromptManager
 
 from .tools import FileReadTool
 
@@ -277,43 +276,29 @@ class AIRulesGeneratorAgent:
 
     @property
     def _markdown_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model = OpenAIChatModel(
+        return create_llm_model(
             model_name=config.AI_RULES_LLM_MODEL,
-            provider=OpenAIProvider(
-                base_url=config.AI_RULES_LLM_BASE_URL,
-                api_key=config.AI_RULES_LLM_API_KEY,
-                http_client=create_retrying_client(),
-            ),
-        )
-
-        settings = ModelSettings(
+            api_base=config.AI_RULES_LLM_BASE_URL,
+            api_key=config.AI_RULES_LLM_API_KEY,
+            api_version=config.AI_RULES_LLM_API_VERSION,
             temperature=config.AI_RULES_LLM_TEMPERATURE,
             max_tokens=config.AI_RULES_LLM_MAX_TOKENS_MARKDOWN,
             timeout=config.AI_RULES_LLM_TIMEOUT,
             parallel_tool_calls=config.AI_RULES_PARALLEL_TOOL_CALLS,
         )
 
-        return model, settings
-
     @property
     def _cursor_rules_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model = OpenAIChatModel(
+        return create_llm_model(
             model_name=config.AI_RULES_LLM_MODEL,
-            provider=OpenAIProvider(
-                base_url=config.AI_RULES_LLM_BASE_URL,
-                api_key=config.AI_RULES_LLM_API_KEY,
-                http_client=create_retrying_client(),
-            ),
-        )
-
-        settings = ModelSettings(
+            api_base=config.AI_RULES_LLM_BASE_URL,
+            api_key=config.AI_RULES_LLM_API_KEY,
+            api_version=config.AI_RULES_LLM_API_VERSION,
             temperature=config.AI_RULES_LLM_TEMPERATURE,
             max_tokens=config.AI_RULES_LLM_MAX_TOKENS_CURSOR,
             timeout=config.AI_RULES_LLM_TIMEOUT,
             parallel_tool_calls=config.AI_RULES_PARALLEL_TOOL_CALLS,
         )
-
-        return model, settings
 
     @property
     def _markdown_agent(self) -> Agent:

@@ -16,6 +16,8 @@ dependencies = [
     "pyyaml>=6.0.2",
     "python-dotenv>=1.1.1",
     "opentelemetry-instrumentation-httpx==0.58b0",
+    "atlassian-python-api>=3.41.0",  # Bitbucket Server support
+    "litellm>=1.55.0",  # Unified LLM provider interface
 ]
 
 [tool.ruff]

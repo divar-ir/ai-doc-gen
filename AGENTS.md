@@ -34,7 +34,7 @@ uv run ruff check src/
 - **Configuration Hierarchy**: Pydantic defaults → YAML file → CLI arguments
 - **Async Execution**: `asyncio.gather()` for concurrent agent execution with error isolation
 
-**Tech Stack**: Python 3.13, pydantic-ai, OpenAI-compatible APIs, GitPython, python-gitlab, OpenTelemetry
+**Tech Stack**: Python 3.13, pydantic-ai, OpenAI-compatible APIs, GitPython, python-gitlab, atlassian-python-api (Bitbucket), OpenTelemetry
 
 ## Code Style
 
@@ -60,8 +60,12 @@ uv run src/main.py generate readme --repo-path . --use-existing-readme
 # Test AI rules generation (skip existing files)
 uv run src/main.py generate ai-rules --repo-path . --skip-existing-claude-md
 
-# Test GitLab integration
+# Test SCM integration (GitLab - default)
 uv run src/main.py cronjob analyze --max-days-since-last-commit 7
+
+# Test SCM integration (Bitbucket Server)
+# Set SCM_PROVIDER=bitbucket_server in .env first
+uv run src/main.py cronjob analyze --namespace-id PROJECT_KEY
 ```
 
 ## Git Workflow
@@ -101,11 +105,14 @@ uv run src/main.py cronjob analyze --max-days-since-last-commit 7
 - Timeout: 180s
 - Retries: 2 per agent + 5 HTTP retries with exponential backoff
 
-**GitLab Integration**:
-- Branch: `ai-analysis-{YYYY-MM-DD}`
+**SCM Integration** (GitLab/Bitbucket Server):
+- Provider: Configured via `SCM_PROVIDER` env var (`gitlab` or `bitbucket_server`)
+- Branch: `ai-analyzer-{YYYY-MM-DD}`
 - Commit: `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
-- Filters: Not archived, recent activity, no existing branch/MR
-- Error isolation: Individual project failures don't stop batch
+- Filters: Not archived, recent activity, no existing branch/PR
+- Error isolation: Individual repository failures don't stop batch
+- GitLab: Uses OAuth token, references groups as namespaces
+- Bitbucket Server: Uses personal access token, references projects as namespaces
 
 **Logging**:
 - Location: `.logs/{repo_name}/{YYYY_MM_DD}/{timestamp}.log`

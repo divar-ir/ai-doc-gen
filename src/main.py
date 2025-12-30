@@ -10,7 +10,6 @@ from typing import Optional
 
 import logfire
 import nest_asyncio
-from gitlab import Gitlab
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefinedType
@@ -19,8 +18,9 @@ import config
 from config import load_config
 from handlers.ai_rules import AIRulesHandler, AIRulesHandlerConfig
 from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
-from handlers.cronjob import JobAnalyzeHandler, JobAnalyzeHandlerConfig
+from handlers.cronjob import CronjobAnalyzeHandler, CronjobAnalyzeHandlerConfig
 from handlers.readme import ReadmeHandler, ReadmeHandlerConfig
+from scm_providers import create_scm_provider_from_config
 from utils import Logger
 
 nest_asyncio.apply()
@@ -80,9 +80,9 @@ async def generate_ai_rules(args: argparse.Namespace):
 
 
 async def cronjob_analyze(args: argparse.Namespace):
-    cfg: JobAnalyzeHandlerConfig = load_config(
+    cfg: CronjobAnalyzeHandlerConfig = load_config(
         args=args,
-        handler_config=JobAnalyzeHandlerConfig,
+        handler_config=CronjobAnalyzeHandlerConfig,
         file_key="cronjob.analyze",
     )
 
@@ -92,12 +92,10 @@ async def cronjob_analyze(args: argparse.Namespace):
         console_level=config.CONSOLE_LOG_LEVEL,
     )
 
-    gitlab_client = Gitlab(
-        url=config.GITLAB_API_URL,
-        oauth_token=config.GITLAB_OAUTH_TOKEN,
-    )
+    # Create SCM provider from configuration
+    scm_provider = create_scm_provider_from_config()
 
-    handler = JobAnalyzeHandler(config=cfg, gitlab_client=gitlab_client)
+    handler = CronjobAnalyzeHandler(config=cfg, scm_provider=scm_provider)
 
     await handler.handle()
 
@@ -192,13 +190,16 @@ def parse_args():
     add_handler_args(generate_ai_rules_parser, AIRulesHandlerConfig.model_fields, "AI Rules Generation Configuration")
 
     # Cronjob command
-    cronjob_parser = subparsers.add_parser("cronjob", help="Run cronjob")
+    cronjob_parser = subparsers.add_parser("cronjob", help="Run scheduled SCM repository analysis")
     cronjob_subparsers = cronjob_parser.add_subparsers(dest="sub_command", required=True)
 
-    cronjob_analyze_parser = cronjob_subparsers.add_parser("analyze", help="Run cronjob analyzer")
+    cronjob_analyze_parser = cronjob_subparsers.add_parser(
+        "analyze",
+        help="Analyze repositories from configured SCM provider (GitLab/Bitbucket)",
+    )
     add_handler_args(
         cronjob_analyze_parser,
-        JobAnalyzeHandlerConfig.model_fields,
+        CronjobAnalyzeHandlerConfig.model_fields,
         "Cronjob Analyzer Configuration",
     )
 
