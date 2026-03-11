@@ -9,6 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.azure import AzureProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
@@ -277,13 +278,19 @@ class AIRulesGeneratorAgent:
 
     @property
     def _markdown_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model = OpenAIChatModel(
-            model_name=config.AI_RULES_LLM_MODEL,
-            provider=OpenAIProvider(
+        # Use AzureProvider if base_url is "azure", otherwise use OpenAIProvider
+        if config.AI_RULES_LLM_BASE_URL.lower() == "azure":
+            provider = AzureProvider(http_client=create_retrying_client())
+        else:
+            provider = OpenAIProvider(
                 base_url=config.AI_RULES_LLM_BASE_URL,
                 api_key=config.AI_RULES_LLM_API_KEY,
                 http_client=create_retrying_client(),
-            ),
+            )
+
+        model = OpenAIChatModel(
+            model_name=config.AI_RULES_LLM_MODEL,
+            provider=provider,
         )
 
         settings = ModelSettings(
@@ -297,13 +304,19 @@ class AIRulesGeneratorAgent:
 
     @property
     def _cursor_rules_llm_model(self) -> Tuple[Model, ModelSettings]:
-        model = OpenAIChatModel(
-            model_name=config.AI_RULES_LLM_MODEL,
-            provider=OpenAIProvider(
+        # Use AzureProvider if base_url is "azure", otherwise use OpenAIProvider
+        if config.AI_RULES_LLM_BASE_URL.lower() == "azure":
+            provider = AzureProvider(http_client=create_retrying_client())
+        else:
+            provider = OpenAIProvider(
                 base_url=config.AI_RULES_LLM_BASE_URL,
                 api_key=config.AI_RULES_LLM_API_KEY,
                 http_client=create_retrying_client(),
-            ),
+            )
+
+        model = OpenAIChatModel(
+            model_name=config.AI_RULES_LLM_MODEL,
+            provider=provider,
         )
 
         settings = ModelSettings(

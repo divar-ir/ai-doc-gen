@@ -10,6 +10,7 @@ from pydantic_ai.agent import AgentRunResult
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.azure import AzureProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
@@ -191,13 +192,19 @@ class AnalyzerAgent:
     def _llm_model(self) -> Tuple[Model, ModelSettings]:
         retrying_http_client = create_retrying_client()
 
-        model = OpenAIChatModel(
-            model_name=config.ANALYZER_LLM_MODEL,
-            provider=OpenAIProvider(
+        # Use AzureProvider if base_url is "azure", otherwise use OpenAIProvider
+        if config.ANALYZER_LLM_BASE_URL.lower() == "azure":
+            provider = AzureProvider(http_client=retrying_http_client)
+        else:
+            provider = OpenAIProvider(
                 base_url=config.ANALYZER_LLM_BASE_URL,
                 api_key=config.ANALYZER_LLM_API_KEY,
                 http_client=retrying_http_client,
-            ),
+            )
+
+        model = OpenAIChatModel(
+            model_name=config.ANALYZER_LLM_MODEL,
+            provider=provider,
         )
 
         settings = ModelSettings(

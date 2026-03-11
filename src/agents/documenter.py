@@ -9,6 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.azure import AzureProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
@@ -129,13 +130,19 @@ class DocumenterAgent:
         base_url = config.DOCUMENTER_LLM_BASE_URL
         api_key = config.DOCUMENTER_LLM_API_KEY
 
-        model = OpenAIChatModel(
-            model_name=model_name,
-            provider=OpenAIProvider(
+        # Use AzureProvider if base_url is "azure", otherwise use OpenAIProvider
+        if base_url.lower() == "azure":
+            provider = AzureProvider(http_client=retrying_http_client)
+        else:
+            provider = OpenAIProvider(
                 base_url=base_url,
                 api_key=api_key,
                 http_client=retrying_http_client,
-            ),
+            )
+
+        model = OpenAIChatModel(
+            model_name=model_name,
+            provider=provider,
         )
 
         settings = ModelSettings(
