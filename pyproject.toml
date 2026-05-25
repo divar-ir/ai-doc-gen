@@ -11,6 +11,7 @@ dependencies = [
     "pydantic-ai==1.22.0",
     "nest-asyncio==1.6.0",
     "python-gitlab==7.0.0",
+    "PyGithub==2.6.1",
     "gitpython==3.1.45",
     "logfire==4.15.1",
     "pyyaml>=6.0.2",

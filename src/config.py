@@ -73,6 +73,11 @@ GITLAB_USER_USERNAME = os.getenv("GITLAB_USER_USERNAME", "agent_doc")
 GITLAB_USER_EMAIL = os.getenv("GITLAB_USER_EMAIL")
 GITLAB_OAUTH_TOKEN = os.getenv("GITLAB_OAUTH_TOKEN")
 
+# GitHub
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_USER_NAME = os.getenv("GITHUB_USER_NAME", "AI Analyzer")
+GITHUB_USER_EMAIL = os.getenv("GITHUB_USER_EMAIL")
+
 # General
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 

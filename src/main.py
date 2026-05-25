@@ -10,6 +10,7 @@ from typing import Optional
 
 import logfire
 import nest_asyncio
+from github import Auth, Github
 from gitlab import Gitlab
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -20,6 +21,7 @@ from config import load_config
 from handlers.ai_rules import AIRulesHandler, AIRulesHandlerConfig
 from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
 from handlers.cronjob import JobAnalyzeHandler, JobAnalyzeHandlerConfig
+from handlers.github_cronjob import GithubJobAnalyzeHandler, GithubJobAnalyzeHandlerConfig
 from handlers.readme import ReadmeHandler, ReadmeHandlerConfig
 from utils import Logger
 
@@ -98,6 +100,26 @@ async def cronjob_analyze(args: argparse.Namespace):
     )
 
     handler = JobAnalyzeHandler(config=cfg, gitlab_client=gitlab_client)
+
+    await handler.handle()
+
+
+async def github_cronjob_analyze(args: argparse.Namespace):
+    cfg: GithubJobAnalyzeHandlerConfig = load_config(
+        args=args,
+        handler_config=GithubJobAnalyzeHandlerConfig,
+        file_key="github_cronjob.analyze",
+    )
+
+    configure_logging(
+        repo_path=Path("."),
+        file_level=config.FILE_LOG_LEVEL,
+        console_level=config.CONSOLE_LOG_LEVEL,
+    )
+
+    github_client = Github(auth=Auth.Token(config.GITHUB_TOKEN))
+
+    handler = GithubJobAnalyzeHandler(config=cfg, github_client=github_client)
 
     await handler.handle()
 
@@ -191,8 +213,8 @@ def parse_args():
     )
     add_handler_args(generate_ai_rules_parser, AIRulesHandlerConfig.model_fields, "AI Rules Generation Configuration")
 
-    # Cronjob command
-    cronjob_parser = subparsers.add_parser("cronjob", help="Run cronjob")
+    # Cronjob command (GitLab)
+    cronjob_parser = subparsers.add_parser("cronjob", help="Run GitLab cronjob")
     cronjob_subparsers = cronjob_parser.add_subparsers(dest="sub_command", required=True)
 
     cronjob_analyze_parser = cronjob_subparsers.add_parser("analyze", help="Run cronjob analyzer")
@@ -200,6 +222,17 @@ def parse_args():
         cronjob_analyze_parser,
         JobAnalyzeHandlerConfig.model_fields,
         "Cronjob Analyzer Configuration",
+    )
+
+    # GitHub Cronjob command
+    github_cronjob_parser = subparsers.add_parser("github-cronjob", help="Run GitHub cronjob")
+    github_cronjob_subparsers = github_cronjob_parser.add_subparsers(dest="sub_command", required=True)
+
+    github_cronjob_analyze_parser = github_cronjob_subparsers.add_parser("analyze", help="Run GitHub cronjob analyzer")
+    add_handler_args(
+        github_cronjob_analyze_parser,
+        GithubJobAnalyzeHandlerConfig.model_fields,
+        "GitHub Cronjob Analyzer Configuration",
     )
 
     return parser.parse_args()
@@ -249,6 +282,12 @@ async def main() -> Optional[int]:
                 await cronjob_analyze(args)
             else:
                 print(f"Error: Unknown cronjob sub-command '{args.sub_command}'")
+                return 1
+        case "github-cronjob":
+            if args.sub_command == "analyze":
+                await github_cronjob_analyze(args)
+            else:
+                print(f"Error: Unknown github-cronjob sub-command '{args.sub_command}'")
                 return 1
         case _:
             print(f"Error: Unknown command '{args.command}'")

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The AI Documentation Generator is a Python CLI tool that uses multi-agent AI to automatically analyze codebases and generate comprehensive documentation. It employs 5 specialized AI agents running concurrently to analyze code structure, dependencies, data flow, request flow, and APIs, then synthesizes results into professional README files and AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/). The system integrates with GitLab for automated project discovery and merge request creation.
+The AI Documentation Generator is a Python CLI tool that uses multi-agent AI to automatically analyze codebases and generate comprehensive documentation. It employs 5 specialized AI agents running concurrently to analyze code structure, dependencies, data flow, request flow, and APIs, then synthesizes results into professional README files and AI assistant configuration files (CLAUDE.md, AGENTS.md, .cursor/rules/). The system integrates with GitLab and GitHub for automated project discovery and pull/merge request creation.
 
 ## Common Commands
 
@@ -31,6 +31,9 @@ uv run src/main.py generate ai-rules --repo-path . --skip-existing-claude-md --s
 
 # GitLab cronjob (automated batch processing)
 uv run src/main.py cronjob analyze --max-days-since-last-commit 14
+
+# GitHub cronjob (automated batch processing for a GitHub org)
+uv run src/main.py github-cronjob analyze --org-name my-github-org --max-days-since-last-commit 14
 
 # Run with custom config
 uv run src/main.py analyze --repo-path /path/to/project --config /path/to/config.yaml
@@ -135,7 +138,8 @@ src/
 │   ├── analyze.py            # Analysis orchestration
 │   ├── readme.py             # README generation
 │   ├── ai_rules.py           # AI rules generation (CLAUDE.md, AGENTS.md, .cursor/rules/)
-│   └── cronjob.py            # GitLab automation
+│   ├── cronjob.py            # GitLab automation
+│   └── github_cronjob.py     # GitHub automation
 ├── agents/                    # AI agents
 │   ├── analyzer.py           # Multi-agent analyzer (5 concurrent agents)
 │   ├── documenter.py         # README generator
@@ -278,11 +282,22 @@ Handler Config Object
 
 ### GitLab Integration
 - **Project Filtering**: Checks archived status, subgroups, commit history, existing branches/MRs
-- **Branch Naming**: `ai-analysis-{YYYY-MM-DD}` format
+- **Branch Naming**: `ai-analyzer-{YYYY-MM-DD}` format
 - **Commit Message**: `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
 - **Skip CI**: Always includes `[skip ci]` to avoid triggering pipelines
 - **Cleanup**: Guaranteed via try-finally blocks
 - **Error Isolation**: Individual project failures don't stop batch
+
+### GitHub Integration
+- **Repo Filtering**: Checks archived status, topics, commit history, existing branches/PRs
+- **Branch Naming**: `ai-analyzer-{YYYY-MM-DD}` format (same convention as GitLab)
+- **Commit Message**: `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
+- **Authentication**: Personal access token or app token via `GITHUB_TOKEN` env var; token injected into HTTPS clone URL
+- **Org Scope**: Analyzes all source repos in a given GitHub org (`--org-name`)
+- **PR Creation**: Opens a pull request from the analysis branch to the repo's default branch
+- **Cleanup**: Guaranteed via try-finally blocks
+- **Error Isolation**: Individual repo failures don't stop batch
+- **Config Key**: `github_cronjob.analyze` in `.ai/config.yaml`
 
 ### Observability
 - **Langfuse Optional**: Set `ENABLE_LANGFUSE=false` to disable
