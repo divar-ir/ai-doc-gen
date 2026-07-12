@@ -13,7 +13,17 @@ from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.settings import ModelSettings
 
 import config
-from utils import Logger, PromptManager, WorkerPool, create_retrying_client
+from utils import (
+    Logger,
+    PromptManager,
+    WorkerPool,
+    build_repo_context,
+    create_retrying_client,
+    is_up_to_date,
+    load_manifest,
+    write_manifest,
+)
+from utils.cache import manifest_path
 
 from .tools import FileReadTool, ListFilesTool
 
@@ -26,11 +36,28 @@ class AnalyzerAgentConfig(BaseModel):
     exclude_request_flow: bool = Field(default=False, description="Exclude request flow analysis")
     exclude_api_analysis: bool = Field(default=False, description="Exclude api analysis")
     max_workers: int = Field(default=0, description="Maximum concurrent workers (0=auto-detect CPU count)")
+    respect_gitignore: bool = Field(
+        default=True,
+        description="Respect the repository's .gitignore when building the analysis context",
+    )
+    max_context_files: int = Field(
+        default=1000,
+        description="Max files listed in the repo structure injected into prompts (0=unlimited)",
+    )
+    cache_enabled: bool = Field(
+        default=True,
+        description="Enable incremental-analysis caching (skip re-analysis when the repository is unchanged)",
+    )
+    force_reanalysis: bool = Field(
+        default=False,
+        description="Force re-analysis even when the incremental cache reports the repository is unchanged",
+    )
 
 
 class AnalyzerAgent:
     def __init__(self, cfg: AnalyzerAgentConfig) -> None:
         self._config = cfg
+        self._repo_context = None
 
         self._prompt_manager = PromptManager(file_path=Path(__file__).parent / "prompts" / "analyzer.yaml")
 
@@ -47,6 +74,21 @@ class AnalyzerAgent:
 
     async def run(self):
         Logger.info("Starting analyzer agent")
+
+        self._repo_context = build_repo_context(
+            self._config.repo_path,
+            max_files=self._config.max_context_files,
+            respect_gitignore=self._config.respect_gitignore,
+        )
+        Logger.info(
+            "Repository context built",
+            data={
+                "file_count": self._repo_context.file_count,
+                "shown_file_count": self._repo_context.shown_file_count,
+                "truncated": self._repo_context.truncated,
+                "languages": self._repo_context.languages,
+            },
+        )
 
         analysis_files = []
         agent_tasks = {}  # Dict preserves insertion order in Python 3.7+
@@ -106,6 +148,18 @@ class AnalyzerAgent:
                 file_path=file_path,
             )
 
+        docs_dir = self._config.repo_path / ".ai" / "docs"
+
+        if self._is_cache_valid(docs_dir, analysis_files):
+            Logger.info(
+                "Repository unchanged since last analysis; skipping (incremental cache hit)",
+                data={
+                    "manifest": str(manifest_path(docs_dir)),
+                    "fingerprint": self._repo_context.fingerprint,
+                },
+            )
+            return
+
         Logger.debug(f"Running {len(agent_tasks)} agents with worker pool")
 
         # Run all agents concurrently using worker pool
@@ -122,6 +176,35 @@ class AnalyzerAgent:
                 Logger.info(f"Agent {agent_name} completed successfully")
 
         self.validate_succession(analysis_files)
+        self._update_cache(docs_dir, analysis_files)
+
+    def _is_cache_valid(self, docs_dir: Path, analysis_files: List[Path]) -> bool:
+        if not self._config.cache_enabled or self._config.force_reanalysis:
+            return False
+
+        manifest = load_manifest(docs_dir)
+        return is_up_to_date(
+            manifest,
+            repo_fingerprint=self._repo_context.fingerprint,
+            analyzer_version=config.VERSION,
+            expected_files=analysis_files,
+        )
+
+    def _update_cache(self, docs_dir: Path, analysis_files: List[Path]) -> None:
+        if not self._config.cache_enabled:
+            return
+
+        if not all(file.exists() for file in analysis_files):
+            Logger.info("Skipping cache manifest write (analysis incomplete)")
+            return
+
+        write_manifest(
+            docs_dir,
+            analyzer_version=config.VERSION,
+            repo_fingerprint=self._repo_context.fingerprint,
+            analysis_files=analysis_files,
+        )
+        Logger.info("Wrote incremental-analysis manifest", data={"path": str(manifest_path(docs_dir))})
 
     def validate_succession(self, analysis_files: List[Path]):
         missing_files = []
@@ -300,9 +383,17 @@ class AnalyzerAgent:
         )
 
     def _render_prompt(self, prompt_name: str) -> str:
+        if self._repo_context is None:
+            self._repo_context = build_repo_context(
+                self._config.repo_path,
+                max_files=self._config.max_context_files,
+                respect_gitignore=self._config.respect_gitignore,
+            )
+
         template_vars = {
             "repo_path": str(self._config.repo_path),
-            "repo_structure": ListFilesTool()._run(str(self._config.repo_path)),
+            "repo_structure": self._repo_context.structure,
+            "detected_languages": ", ".join(self._repo_context.languages),
         }
 
         return self._prompt_manager.render_prompt(prompt_name, **template_vars)
