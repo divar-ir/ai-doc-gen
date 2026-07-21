@@ -1,0 +1,15 @@
+{
+  "name": "divar",
+  "description": "Claude Code plugins from Divar engineering.",
+  "owner": {
+    "name": "Divar",
+    "url": "https://github.com/divar-ir"
+  },
+  "plugins": [
+    {
+      "name": "ai-doc-gen",
+      "source": "./",
+      "description": "Multi-agent codebase analysis and documentation generation: parallel analyzers plus README and AI-rules generators."
+    }
+  ]
+}

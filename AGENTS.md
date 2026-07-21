@@ -1,14 +1,14 @@
 # AI Documentation Generator
 
-Multi-agent Python CLI tool that analyzes codebases and generates comprehensive documentation using specialized AI agents.
+Multi-agent Python CLI tool that analyzes codebases and generates documentation: `.ai/docs/*.md` analyses, README.md, and AI assistant config files (CLAUDE.md, AGENTS.md, .cursor/rules/).
 
 ## Build & Test
 
 ```bash
-# Install dependencies
+# Install dependencies (Python 3.13 required, <3.14)
 uv sync
 
-# Run analysis
+# Run analysis (writes .ai/docs/*.md)
 uv run src/main.py analyze --repo-path .
 
 # Generate README
@@ -17,106 +17,79 @@ uv run src/main.py generate readme --repo-path .
 # Generate AI assistant config files (CLAUDE.md, AGENTS.md, .cursor/rules/)
 uv run src/main.py generate ai-rules --repo-path .
 
-# Format code
-uv run ruff format src/
+# GitLab batch mode
+uv run src/main.py cronjob analyze --max-days-since-last-commit 14
 
-# Lint code
+# Format and lint (run both before submitting)
+uv run ruff format src/
 uv run ruff check src/
 ```
 
+Setup: `cp .env.sample .env` (fill in LLM keys), optionally `cp config_example.yaml .ai/config.yaml`.
+
 ## Architecture
 
-- **Multi-Agent System**:
-  - 5 concurrent analysis agents (structure, dependencies, data flow, request flow, API)
-  - 2 concurrent generation agents (markdown generator, cursor rules generator)
-- **Handler Pattern**: Commands implement `AbstractHandler` with `handle()` method
-- **Tool-Based Agents**: Pydantic-AI agents with `FileReadTool` and `ListFilesTool`
-- **Configuration Hierarchy**: Pydantic defaults → YAML file → CLI arguments
-- **Async Execution**: `asyncio.gather()` for concurrent agent execution with error isolation
+- **Multi-agent system**: 5 analysis agents (structure, dependencies, data flow, request flow, API) run through a `WorkerPool` (`src/utils/worker_pool.py`, concurrency from `ANALYZER_MAX_WORKERS`, 0 = CPU count); 2 AI-rules generators (markdown + cursor) run via `asyncio.gather(return_exceptions=True)`.
+- **Handler pattern**: each CLI command maps to a handler in `src/handlers/` implementing `AbstractHandler.handle()`; handler configs subclass `BaseHandlerConfig` + the agent config (e.g., `AnalyzeHandlerConfig(BaseHandlerConfig, AnalyzerAgentConfig)`).
+- **Tool-based agents**: pydantic-ai agents with `FileReadTool` and `ListFilesTool` (`src/agents/tools/`); prompts are Jinja2 templates in `src/agents/prompts/*.yaml`.
+- **Configuration hierarchy**: Pydantic defaults → `.ai/config.yaml` → CLI arguments (`merge_dicts()`); secrets come from `.env` via module-level constants in `src/config.py`.
+- **LLM providers**: OpenAI-compatible only (`OpenAIChatModel` + `OpenAIProvider` with base URL override). Three env config sets: `ANALYZER_LLM_*`, `DOCUMENTER_LLM_*`, `AI_RULES_LLM_*` (AI_RULES falls back to DOCUMENTER values).
 
-**Tech Stack**: Python 3.13, pydantic-ai, OpenAI-compatible APIs, GitPython, python-gitlab, OpenTelemetry
+**Tech stack**: Python 3.13, pydantic-ai, GitPython, python-gitlab, logfire/OpenTelemetry, Jinja2.
+
+Also in this repo: `skills/` (Claude Code skills mirroring the agents: analyze-codebase, generate-readme, generate-ai-rules) and `.claude-plugin/` (plugin manifest). Keep skill instructions in sync with agent prompt changes.
 
 ## Code Style
 
-- **Formatter**: Ruff (120 char lines, 4-space indent)
-- **Type Hints**: Pydantic models for all config/data structures
-- **Async/Await**: All agent operations are async
-- **Naming**: Snake case files/functions, Pascal case classes, `_private` methods
-- **Error Handling**: Graceful degradation, partial success acceptable, `ModelRetry` for tool errors
+- **Formatter/linter**: Ruff (120-char lines, 4-space indent, `target-version = "py313"`, import sorting enabled)
+- **Type hints**: Pydantic models for all config/data structures; config classes end in `Config`
+- **Async/await**: all agent operations are async
+- **Naming**: snake_case files/functions, PascalCase classes, `_private` methods, UPPER_SNAKE constants
+- **Error handling**: graceful degradation — partial success is acceptable; raise `ModelRetry` inside tools to trigger pydantic-ai retries; log errors with `exc_info=True`
 
 ## Testing
 
-No automated tests currently. Manual testing:
+No automated tests. Verify changes manually:
 ```bash
-# Test analysis
 uv run src/main.py analyze --repo-path /path/to/test/repo
-
-# Test with exclusions
-uv run src/main.py analyze --repo-path . --exclude-data-flow
-
-# Test README generation
+uv run src/main.py analyze --repo-path . --exclude-data-flow --exclude-api-analysis
 uv run src/main.py generate readme --repo-path . --use-existing-readme
-
-# Test AI rules generation (skip existing files)
 uv run src/main.py generate ai-rules --repo-path . --skip-existing-claude-md
-
-# Test GitLab integration
-uv run src/main.py cronjob analyze --max-days-since-last-commit 7
 ```
 
 ## Git Workflow
 
-**Branches**: `main` (production), `feature/*`, `fix/*`, `ai-analysis-YYYY-MM-DD` (automated)
+- **Branches**: `main` (production), `feature/*`, `fix/*`, `ai-analysis-YYYY-MM-DD` (automated)
+- **Commits**: `[Category] Brief description` — categories: `[Feature]`, `[Fix]`/`[BUGFIX]`, `[Refactor]`, `[Docs]`, `[Config]`, `[AI]`
+- **PRs**: feature branch → main, run ruff format + check first, squash merge
 
-**Commits**: `[Category] Brief description` (Categories: Feature, Fix, Refactor, Docs, Config, AI)
-
-**PRs**: Feature branch → main, squash merge, run ruff before submitting
-
-## Key Conventions
+## Key Conventions & Gotchas
 
 **Configuration**:
-- Environment variables in `.env` (API keys, tokens)
-- Project config in `.ai/config.yaml` (analysis settings)
-- CLI args override YAML, YAML overrides env defaults
+- Required env vars (import fails without them): `ANALYZER_LLM_MODEL/BASE_URL/API_KEY`, `DOCUMENTER_LLM_MODEL/BASE_URL/API_KEY`
+- Config path resolution: `--config` flag, else `.ai/config.yaml`, else `.ai/config.yml`; missing config returns empty dict (no failure)
+- Nested YAML keys per command section (e.g., `readme.exclude_architecture`); CLI flags are `--exclude-*` store_true
 
-**File Structure**:
-- `src/handlers/` - Command handlers (analyze, readme, ai_rules, cronjob)
-- `src/agents/` - AI agents (analyzer, documenter, ai_rules_generator) + prompts + tools
-- `src/utils/` - Shared utilities (logger, retry client, prompt manager)
-
-**Agent Execution**:
-- 5 agents run concurrently via `asyncio.gather(return_exceptions=True)`
-- Individual failures logged but don't stop others
-- Partial success valid if ≥1 agent succeeds
-- Output: `.ai/docs/*.md` (structure, dependencies, data flow, request flow, API)
+**Agent execution**:
+- Individual agent failures are logged but don't stop others; run fails only if ALL agents fail (ValueError)
+- Retries: `*_AGENT_RETRIES` (default 2) per agent + 5 HTTP retries with exponential backoff (`src/utils/retry_client.py`, honors Retry-After, retries 429)
+- Temperature 0.0, max tokens 8192 (16384 for cursor rules), timeouts 180s (240s for ai-rules)
+- Absolute paths in agent output are replaced with `.` for portability
 
 **Tools**:
-- `FileReadTool`: Read files with line ranges (default 200 lines)
-- `ListFilesTool`: Recursive listing with 100+ ignore patterns
-- Both retry 2 times on `ModelRetry` exceptions
+- `FileReadTool._run()`: reads 200 lines by default, `line_number`/`line_count` for ranges; raises `ModelRetry` on missing files/permission errors
+- `ListFilesTool`: recursive listing with 100+ ignore patterns
 
-**LLM Settings**:
-- Temperature: 0.0 (deterministic)
-- Max tokens: 8192
-- Timeout: 180s
-- Retries: 2 per agent + 5 HTTP retries with exponential backoff
+**GitLab cronjob**:
+- Branch `ai-analysis-{YYYY-MM-DD}`, commit `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
+- Skips archived projects, stale repos, and projects with existing branch/MR; processes projects sequentially; cleanup in try-finally
 
-**GitLab Integration**:
-- Branch: `ai-analysis-{YYYY-MM-DD}`
-- Commit: `[AI] Analyzer-Agent: Create/Update AI Analysis [skip ci]`
-- Filters: Not archived, recent activity, no existing branch/MR
-- Error isolation: Individual project failures don't stop batch
-
-**Logging**:
-- Location: `.logs/{repo_name}/{YYYY_MM_DD}/{timestamp}.log`
-- File: INFO level, Console: WARNING level
-- Structured data via ujson
+**Observability**:
+- Langfuse optional (`ENABLE_LANGFUSE=false` to disable); OpenTelemetry instruments pydantic-ai + httpx
+- Logs: `.logs/{repo_name}/{YYYY_MM_DD}/{timestamp}.log` (file INFO, console WARNING); `Logger.init()` must run before use (singleton)
 
 ## Common Issues
 
-- **Import errors**: Run `uv sync`
-- **API key errors**: Check `.env` has correct keys (no quotes)
-- **Config not found**: Ensure `.ai/config.yaml` exists or use `--config`
-- **Permission denied**: Check write permissions for `.ai/docs/` and `README.md`
-- **Timeout errors**: Increase `*_LLM_TIMEOUT` in `.env`
-- **Partial analysis**: Check logs for agent failures, rerun to retry
+- Import errors → `uv sync`; KeyError on startup → missing required env vars in `.env`
+- Timeouts → raise `ANALYZER_LLM_TIMEOUT` / `DOCUMENTER_LLM_TIMEOUT` / `AI_RULES_LLM_TIMEOUT`
+- Rate limiting → handled automatically (backoff + Retry-After); partial analysis → check logs, rerun

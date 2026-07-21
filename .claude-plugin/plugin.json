@@ -1,0 +1,13 @@
+{
+  "name": "ai-doc-gen",
+  "version": "1.0.0",
+  "description": "Multi-agent codebase analysis and documentation generation: parallel analyzers for structure, dependencies, data flow, request flow, and APIs, plus README and AI-rules (CLAUDE.md, AGENTS.md, Cursor rules) generators.",
+  "author": {
+    "name": "Divar",
+    "url": "https://github.com/divar-ir"
+  },
+  "homepage": "https://github.com/divar-ir/ai-doc-gen",
+  "repository": "https://github.com/divar-ir/ai-doc-gen",
+  "license": "MIT",
+  "keywords": ["documentation", "readme", "analysis", "claude-md", "agents-md", "cursor-rules"]
+}
