@@ -16,10 +16,6 @@ Read the full story behind this project:
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Architecture](#architecture)
-- [Repository Structure](#repository-structure)
-- [Dependencies and Integration](#dependencies-and-integration)
-- [Development Notes](#development-notes)
-- [Known Issues and Limitations](#known-issues-and-limitations)
 - [License](#license)
 
 ## Features
@@ -36,6 +32,21 @@ Read the full story behind this project:
 - **Observability**: OpenTelemetry tracing via logfire with optional Langfuse integration
 
 ## Installation
+
+### Using Skills (Claude Code)
+
+This repository doubles as a Claude Code plugin — the easiest way to use it, no API keys or Python setup required. Install it from within Claude Code:
+
+```
+/plugin marketplace add divar-ir/ai-doc-gen
+/plugin install ai-doc-gen@divar
+```
+
+This adds three skills that Claude Code invokes directly:
+
+- `analyze-codebase` — multi-agent analysis producing `.ai/docs/` documents
+- `generate-readme` — README generation from analysis or direct exploration
+- `generate-ai-rules` — `CLAUDE.md`, `AGENTS.md`, and Cursor rules generation
 
 ### Prerequisites
 
@@ -152,21 +163,6 @@ uv run src/main.py generate ai-rules --repo-path . \
 uv run src/main.py cronjob analyze --max-days-since-last-commit 14
 ```
 
-### Claude Code Plugin
-
-This repository doubles as a Claude Code plugin. Install it from within Claude Code:
-
-```
-/plugin marketplace add divar-ir/ai-doc-gen
-/plugin install ai-doc-gen@divar
-```
-
-Once installed, Claude Code can invoke the bundled skills directly:
-
-- `analyze-codebase` — multi-agent analysis producing `.ai/docs/` documents
-- `generate-readme` — README generation from analysis or direct exploration
-- `generate-ai-rules` — `CLAUDE.md`, `AGENTS.md`, and Cursor rules generation
-
 ## Configuration
 
 The tool automatically looks for configuration in `.ai/config.yaml` or `.ai/config.yml` in your repository. Precedence: Pydantic defaults < YAML file < CLI flags.
@@ -193,72 +189,6 @@ The system uses a **multi-agent architecture** with specialized AI agents for di
   - `AIRulesGeneratorAgent`: generates markdown rules (CLAUDE.md + AGENTS.md) and Cursor rules concurrently
 - **Tool Layer** (`src/agents/tools/`): `FileReadTool` (ranged file reading) and `ListFilesTool` (filtered recursive listing) registered with every agent
 
-```mermaid
-graph TB
-    subgraph CLI
-        MAIN[src/main.py]
-    end
-
-    subgraph Handlers
-        AH[AnalyzeHandler]
-        RH[ReadmeHandler]
-        ARH[AIRulesHandler]
-        JH[JobAnalyzeHandler]
-    end
-
-    subgraph Agents
-        AA[AnalyzerAgent<br/>5 concurrent analyzers]
-        DA[DocumenterAgent]
-        RA[AIRulesGeneratorAgent<br/>markdown + cursor]
-    end
-
-    subgraph Tools
-        FT[FileReadTool]
-        LT[ListFilesTool]
-    end
-
-    MAIN -->|"analyze"| AH
-    MAIN -->|"generate readme"| RH
-    MAIN -->|"generate ai-rules"| ARH
-    MAIN -->|"cronjob analyze"| JH
-
-    AH --> AA
-    RH --> DA
-    ARH --> RA
-    JH -->|clones repos, reuses| AH
-    JH -->|pushes branch, opens MR| GL[(GitLab API)]
-
-    AA --> FT
-    AA --> LT
-    DA --> FT
-    DA --> LT
-    RA --> FT
-    RA --> LT
-
-    AA -->|writes| DOCS[.ai/docs/*.md]
-    DA -->|reads .ai/docs, writes| README[README.md]
-    RA -->|reads .ai/docs, writes| RULES[CLAUDE.md / AGENTS.md / .cursor/rules/]
-```
-
-### Analysis Flow
-
-```mermaid
-graph LR
-    A[AnalyzerAgent] --> WP[WorkerPool<br/>max_workers]
-    WP --> S[Structure Analyzer]
-    WP --> D[Data Flow Analyzer]
-    WP --> DEP[Dependency Analyzer]
-    WP --> R[Request Flow Analyzer]
-    WP --> API[API Analyzer]
-    S --> O1[structure_analysis.md]
-    D --> O2[data_flow_analysis.md]
-    DEP --> O3[dependency_analysis.md]
-    R --> O4[request_flow_analysis.md]
-    API --> O5[api_analysis.md]
-```
-
-Each analysis agent runs independently with error isolation: individual failures are logged and the run succeeds if at least one agent completes (it fails only when all agents fail).
-
 ### Technology Stack
 
 - **Python 3.13** with [pydantic-ai](https://ai.pydantic.dev/) for AI agent orchestration
@@ -266,58 +196,6 @@ Each analysis agent runs independently with error isolation: individual failures
 - **GitPython & python-gitlab** for repository operations and GitLab automation
 - **logfire / OpenTelemetry & Langfuse** for observability
 - **YAML + Jinja2 + Pydantic** for prompts and configuration management
-
-## Repository Structure
-
-```
-├── src/
-│   ├── main.py                  # CLI entry point (analyze, generate, cronjob)
-│   ├── config.py                # Env vars + layered config loading
-│   ├── handlers/                # Command handlers (analyze, readme, ai_rules, cronjob)
-│   ├── agents/
-│   │   ├── analyzer.py          # 5 concurrent analysis agents
-│   │   ├── documenter.py        # README generator
-│   │   ├── ai_rules_generator.py# CLAUDE.md / AGENTS.md / Cursor rules generator
-│   │   ├── prompts/             # YAML + Jinja2 prompt templates
-│   │   └── tools/               # FileReadTool, ListFilesTool
-│   └── utils/                   # Logger, PromptManager, WorkerPool, retry client, git helpers
-├── skills/                      # Claude Code skills (analyze-codebase, generate-readme, generate-ai-rules)
-├── .claude-plugin/              # Claude Code plugin & marketplace manifests
-├── k8s/helm/                    # Helm chart (CronJob deployment)
-├── Dockerfile                   # Container image for cronjob/CLI
-├── config_example.yaml          # Example .ai/config.yaml
-└── .env.sample                  # Documented environment variables
-```
-
-## Dependencies and Integration
-
-External services the tool integrates with (ordinary libraries are not listed here):
-
-| Service | Purpose | Required |
-|---|---|---|
-| OpenAI-compatible LLM API | Powers all analysis and generation agents; separate model/endpoint/key per agent type (`ANALYZER_*`, `DOCUMENTER_*`, `AI_RULES_*`) | Yes |
-| GitLab | Cronjob mode: project discovery, cloning, branch creation (`ai-analysis-{YYYY-MM-DD}`), and merge requests with `[skip ci]` commits | Only for `cronjob analyze` |
-| Langfuse | LLM observability via OTLP export (`ENABLE_LANGFUSE=true`) | Optional |
-
-There is no database or message queue — all state is ephemeral files inside the target repository.
-
-## Development Notes
-
-- **Formatting / linting**: `uv run ruff format src/` and `uv run ruff check src/` (line length 120, 4-space indent, Python 3.13 target)
-- **Running locally**: `uv run src/main.py <command>`; logs are written to `src/.logs/{repo_name}/{YYYY_MM_DD}/` (console shows WARNING+, file captures INFO+ by default)
-- **Determinism**: agents run with temperature 0.0 by default for reproducible output
-- **Retries**: 2 retries per agent, tool calls retry via pydantic-ai `ModelRetry`, and HTTP requests retry up to 5 times with exponential backoff (respects `Retry-After`, including 429s)
-- **Partial success is by design**: the analyzer logs failed agents and continues; rerun to fill in missing analyses
-- **Cronjob safety**: skips archived projects, projects whose latest commit is already an AI analysis commit, stale projects (`max_days_since_last_commit`), and projects that already have today's `ai-analysis-*` branch or an open analysis MR
-- **Output cleanup**: absolute paths in agent output are rewritten to `.` for portability
-
-## Known Issues and Limitations
-
-- **No caching or incremental analysis**: every run re-analyzes the whole repository; results are not cached between runs
-- **Sequential cronjob**: GitLab projects are processed one at a time to avoid overwhelming the API
-- **Token limits**: response budgets (8192 tokens for analysis/README, 16384 for Cursor rules) may truncate output for very large codebases — use exclusion flags to narrow scope
-- **Language coverage**: prompts are tuned primarily for Python-style projects; other stacks may need prompt adjustments
-- **Rate limiting**: heavy runs against rate-limited providers may need increased retry/timeout settings (see `.env.sample` recommendations)
 
 ## License
 
