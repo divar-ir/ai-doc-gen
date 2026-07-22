@@ -30,6 +30,10 @@ class AnalyzeHandler(BaseHandler):
                     "exclude_dependencies": self.config.exclude_dependencies,
                     "exclude_request_flow": self.config.exclude_request_flow,
                     "max_workers": self.config.max_workers,
+                    "respect_gitignore": self.config.respect_gitignore,
+                    "max_context_files": self.config.max_context_files,
+                    "cache_enabled": self.config.cache_enabled,
+                    "force_reanalysis": self.config.force_reanalysis,
                     "input": str(self.config.repo_path),
                 }
             )

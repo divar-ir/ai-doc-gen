@@ -1,5 +1,7 @@
+import asyncio
 import shutil
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional
@@ -13,7 +15,7 @@ from pydantic import BaseModel, Field
 import config
 from config import load_config_from_file
 from handlers.analyze import AnalyzeHandler, AnalyzeHandlerConfig
-from utils import Logger
+from utils import Logger, WorkerPool
 from utils.dict import merge_dicts
 
 from .base_handler import AbstractHandler
@@ -39,6 +41,12 @@ class JobAnalyzeHandlerConfig(BaseModel):
         default=3,
         description="Group project ID to analyze",
     )
+    max_project_workers: Optional[int] = Field(
+        default=4,
+        description="Maximum projects analyzed concurrently (0=auto-detect CPU count). "
+        "Note: effective LLM concurrency is roughly this value multiplied by the "
+        "analyzer's own max_workers, so tune both together to respect provider rate limits.",
+    )
 
 
 class JobAnalyzeHandler(AbstractHandler):
@@ -55,22 +63,51 @@ class JobAnalyzeHandler(AbstractHandler):
 
         git_group = self._gitlab_client.groups.get(id=self._config.group_project_id)
 
+        applicable_projects: List[Project] = []
         for group_project in git_group.projects.list(iterator=True, include_subgroups=True):
             try:
                 Logger.info(f"Checking project {group_project.name} (ID: {group_project.id})")
                 project = self._gitlab_client.projects.get(id=group_project.get_id())
                 if self._is_applicable_project(project):
                     Logger.debug(f"Project {group_project.name} (ID: {group_project.id}) is applicable")
-                    await self._handle_project(project)
+                    applicable_projects.append(project)
             except Exception as err:
                 Logger.error(
-                    f"Error handling project {group_project.name} (ID: {group_project.id}): {err}",
+                    f"Error checking project {group_project.name} (ID: {group_project.id}): {err}",
                     data={
                         "project_id": group_project.id,
                         "project_name": group_project.name,
                     },
                     exc_info=True,
                 )
+
+        if not applicable_projects:
+            Logger.info("No applicable projects found for cronjob")
+            return
+
+        worker_pool = WorkerPool(max_workers=self._resolve_project_workers())
+        Logger.info(
+            f"Processing {len(applicable_projects)} applicable projects concurrently",
+            data={"max_project_workers": worker_pool.max_workers},
+        )
+
+        tasks = [partial(self._handle_project, project) for project in applicable_projects]
+        results = await worker_pool.run(tasks)
+
+        for project, result in zip(applicable_projects, results):
+            if isinstance(result, Exception):
+                Logger.error(
+                    f"Error handling project {project.name} (ID: {project.id}): {result}",
+                    data={
+                        "project_id": project.id,
+                        "project_name": project.name,
+                    },
+                    exc_info=True,
+                )
+
+    def _resolve_project_workers(self) -> int:
+        workers = self._config.max_project_workers
+        return 0 if workers is None else workers
 
     def _is_applicable_project(self, project: Project) -> bool:
         # Check if project is archived
@@ -124,16 +161,14 @@ class JobAnalyzeHandler(AbstractHandler):
     async def _handle_project(self, project: Project):
         Logger.info(f"Running cronjob for project {project.name} (ID: {project.id})")
 
+        repo = None
         try:
-            # Clone Project
-            repo = self._clone_project(project)
-            # # Analyze project
+            repo = await asyncio.to_thread(self._clone_project, project)
             await self._analyze_project(project=project, repo=repo)
-            # Create MR
             await self._create_merge_request(project=project, repo=repo)
-            # Cleanup
         finally:
-            self._cleanup_project(project=project, repo=repo)
+            if repo is not None:
+                await asyncio.to_thread(self._cleanup_project, project, repo)
 
     def _clone_project(self, project: Project) -> Repo:
         Logger.info(f"Cloning project {project.name} (ID: {project.id})")
@@ -184,22 +219,7 @@ class JobAnalyzeHandler(AbstractHandler):
     async def _create_merge_request(self, project: Project, repo: Repo):
         Logger.info(f"Creating merge request for project {project.name} (ID: {project.id})")
 
-        repo.git.add(".")
-        commit_message = f"{COMMIT_MESSAGE_TITLE} [skip ci]\n\nAnalyzer Version: {config.VERSION}"
-
-        repo.git.commit("-m", commit_message)
-        repo.git.push("origin", repo.active_branch.name, "-f")
-
-        mr = project.mergerequests.create(
-            {
-                "source_branch": repo.active_branch.name,
-                "target_branch": project.default_branch,
-                "title": f"{COMMIT_MESSAGE_TITLE} for {project.name} - {datetime.now().strftime('%Y-%m-%d')} [skip ci]",
-                "description": f"This merge request contains Updated AI analysis results.\n\n"
-                f"Analyzer Version: `{config.VERSION}`\n\n"
-                "**Note:** This merge request is automatically created by the AI Analyzer Agent.",
-            }
-        )
+        mr = await asyncio.to_thread(self._commit_push_and_open_mr, project, repo)
 
         Logger.debug(
             f"Created merge request {mr.id} for project {project.name} (ID: {project.id})",
@@ -208,6 +228,24 @@ class JobAnalyzeHandler(AbstractHandler):
                 "merge_request_title": mr.title,
                 "web_url": mr.web_url,
             },
+        )
+
+    def _commit_push_and_open_mr(self, project: Project, repo: Repo):
+        repo.git.add(".")
+        commit_message = f"{COMMIT_MESSAGE_TITLE} [skip ci]\n\nAnalyzer Version: {config.VERSION}"
+
+        repo.git.commit("-m", commit_message)
+        repo.git.push("origin", repo.active_branch.name, "-f")
+
+        return project.mergerequests.create(
+            {
+                "source_branch": repo.active_branch.name,
+                "target_branch": project.default_branch,
+                "title": f"{COMMIT_MESSAGE_TITLE} for {project.name} - {datetime.now().strftime('%Y-%m-%d')} [skip ci]",
+                "description": f"This merge request contains Updated AI analysis results.\n\n"
+                f"Analyzer Version: `{config.VERSION}`\n\n"
+                "**Note:** This merge request is automatically created by the AI Analyzer Agent.",
+            }
         )
 
     def _cleanup_project(self, project: Project, repo: Repo):

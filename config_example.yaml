@@ -10,6 +10,12 @@ analyzer:
   exclude_api_analysis: false
   # Worker pool configuration
   max_workers: 0  # Maximum concurrent analyzer agents (0=auto-detect CPU count)
+  # Repository context (what gets injected into analyzer prompts)
+  respect_gitignore: true    # Honor the repo's .gitignore when building the analysis context
+  max_context_files: 1000    # Max files listed in the injected repo structure (0=unlimited)
+  # Incremental-analysis cache (skip re-analysis when the repository is unchanged)
+  cache_enabled: true        # Enable the incremental cache (.ai/docs/.manifest.json)
+  force_reanalysis: false    # Force re-analysis even on a cache hit (CLI: --force-reanalysis)
 
 # Generator configuration options
 generate:
@@ -47,3 +53,7 @@ cronjob:
     max_days_since_last_commit: 30
     # Path to clone projects for cronjob execution
     working_path: "/tmp/cronjob/projects"
+    # Maximum projects analyzed concurrently (0=auto-detect CPU count).
+    # Effective LLM concurrency is roughly this value * analyzer.max_workers,
+    # so tune both together to stay within provider rate limits.
+    max_project_workers: 4
